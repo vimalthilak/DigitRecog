@@ -1,0 +1,9 @@
+build/
+lib/
+*.pyc
+python/*
+!python/*.i
+!python/__init__.py
+run/*
+!run/*.py
+*.DS_Store
