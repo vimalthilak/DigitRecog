@@ -1,5 +1,5 @@
 import sys
-from UtilityTools.python.RootNtupleWriterTool import RootNtupleWriterTool
+from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool
 from Services.python.IncidentService import IncidentService, Incident
 from DigitRecog.python.DigitRecog import FeX, GaussianBlurTool, CannyEdgeTool, FloatVector
 

@@ -57,6 +57,8 @@ int FeX::initialize()
     REGBRANCH_S(target, int, -1)
     
     REGBRANCH_V(features, float)
+
+    REGBRANCH_V(test_branch, float)
     
     REGBRANCH_V_META(features_name, std::string);
     
