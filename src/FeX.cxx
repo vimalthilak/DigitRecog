@@ -21,7 +21,7 @@
 // Constructor
 ///////////////////////////
 FeX::FeX(const std::string& n, IRootNtupleWriterTool* r, IRootNtupleWriterTool* r_meta):
-        Messaging(n), m_first(false), m_stop(false), m_ntuple_helper(r), m_ntuple_helper_metadata(r_meta) {
+        Messaging(n), m_first(false), m_ntuple_helper(r), m_ntuple_helper_metadata(r_meta) {
     
     Register();
     
@@ -29,7 +29,7 @@ FeX::FeX(const std::string& n, IRootNtupleWriterTool* r, IRootNtupleWriterTool* 
 
 ///////////////////////////
 FeX::FeX(const std::string& n, TLogLevel m_lvl, IRootNtupleWriterTool* r, IRootNtupleWriterTool* r_meta):
-         Messaging(n, m_lvl), m_first(false),  m_stop(false), m_ntuple_helper(r), m_ntuple_helper_metadata(r_meta) {
+         Messaging(n, m_lvl), m_first(false), m_ntuple_helper(r), m_ntuple_helper_metadata(r_meta) {
     
     Register();
     
@@ -58,7 +58,7 @@ int FeX::initialize()
     
     REGBRANCH_V(features, float)
 
-    REGBRANCH_V(test_branch, float)
+    //REGBRANCH_V(test_branch, float)
     
     REGBRANCH_V_META(features_name, std::string);
     
@@ -81,10 +81,6 @@ int FeX::execute(int target, std::vector<float>& img) {
     
 #define AT2D(vec, col, x, y) vec.at( ((col-1)-(y))*col + (x))
 #define AT2D_(vec, x, y) AT2D(vec, dim, x, y)
-    
-    
-    //disable meta-data tree, not needed anymore
-    if (m_first && !m_stop) { m_stop = true; m_ntuple_helper_metadata->stop(); }
     
     
     LOG("In execute()", logVERBOSE);
@@ -379,10 +375,10 @@ int FeX::execute(int target, std::vector<float>& img) {
         
         ////////////////////////////////////////////////
         
-        LOG("quadrant "<<i, logDEBUG);
-        LOG("  r_min      "<<r_min_stats[i][0]<<", "<<r_min_stats[i][1]<<", "<<r_min_stats[i][2]<<", "<<r_min_stats[i][3]<<", "<<r_min_stats[i][4], logDEBUG);
-        LOG("  r_max      "<<r_max_stats[i][0]<<", "<<r_max_stats[i][1]<<", "<<r_max_stats[i][2]<<", "<<r_max_stats[i][3]<<", "<<r_max_stats[i][4], logDEBUG);
-        LOG("  ang_wrtmin "<<ang_wrtmin_stats[i][0]<<", "<<ang_wrtmin_stats[i][1]<<", "<<ang_wrtmin_stats[i][2]<<", "<<ang_wrtmin_stats[i][3]<<", "<<ang_wrtmin_stats[i][4], logDEBUG);
+        LOG("quadrant "<<i, logVERBOSE);
+        LOG("  r_min      "<<r_min_stats[i][0]<<", "<<r_min_stats[i][1]<<", "<<r_min_stats[i][2]<<", "<<r_min_stats[i][3]<<", "<<r_min_stats[i][4], logVERBOSE);
+        LOG("  r_max      "<<r_max_stats[i][0]<<", "<<r_max_stats[i][1]<<", "<<r_max_stats[i][2]<<", "<<r_max_stats[i][3]<<", "<<r_max_stats[i][4], logVERBOSE);
+        LOG("  ang_wrtmin "<<ang_wrtmin_stats[i][0]<<", "<<ang_wrtmin_stats[i][1]<<", "<<ang_wrtmin_stats[i][2]<<", "<<ang_wrtmin_stats[i][3]<<", "<<ang_wrtmin_stats[i][4], logVERBOSE);
         
     }
     

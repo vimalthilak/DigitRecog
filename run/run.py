@@ -1,8 +1,7 @@
 import sys
-from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool
 from Services.python.IncidentService import IncidentService, Incident
-from DigitRecog.python.DigitRecog import FeX, GaussianBlurTool, CannyEdgeTool, FloatVector
-
+from DigitRecog.python.DigitRecog import FeX , GaussianBlurTool, CannyEdgeTool , FloatVector
+from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool
 
 def _run(tool):
 
@@ -29,6 +28,7 @@ def _run(tool):
   
   inc_svc.fireIncident(Incident("EndEvent"))
 
+
   inc_svc.fireIncident(Incident("EndRun"))
 
 def main():
@@ -37,17 +37,25 @@ def main():
   
   
   root_svc = RootNtupleWriterTool("RootTool", "tree.root", "ttree", 3)
-  root_svc_meta = RootNtupleWriterTool("RootToolMeta", "tree.root", "ttree_meta", 3)
+  root_svc_meta = RootNtupleWriterTool("RootToolMeta", "tree.root", "ttree_meta", 3, True) # only one event
   
   gauss = GaussianBlurTool()
   canny = CannyEdgeTool()
   
-  fex = FeX("myFex", 4, root_svc, root_svc_meta)
+  
+  
+  fex = FeX("myFex", 3, root_svc, root_svc_meta)
   fex.addPreProcessorTool(gauss)
   fex.addPreProcessorTool(canny)
   
   _run(fex)
   
+  inc_svc = IncidentService.getInstance()
+  inc_svc.kill()
+  print "here"
+  
+
+
   return 0
 
 if __name__ == '__main__':

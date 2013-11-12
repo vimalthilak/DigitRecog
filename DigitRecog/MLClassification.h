@@ -4,7 +4,7 @@
 #include <vector>
 
 class IRootNtupleWriterTool;
-class IPreProcessorTools;
+
 namespace cv {
   class Mat;
 }
@@ -25,6 +25,8 @@ public:
   void accumulateTrain(int, const std::vector<float>&);
   void accumulateTest(int, const std::vector<float>&);
   
+  void performCrossValidationTraining(unsigned int);
+  
     
   //IIncidentListener impl
   virtual void handle(const Incident&);
@@ -38,6 +40,9 @@ protected:
   
   cv::Mat * m_testing_data;
   cv::Mat * m_testing_classes;
+  
+  std::vector<float> m_training_max;
+  std::vector<float> m_training_min;
     
 
   IRootNtupleWriterTool * m_ntuple_helper;
@@ -50,6 +55,7 @@ protected:
   void pushBack(const std::string & , const T*, IRootNtupleWriterTool *);
   
   void accumulate(int, const std::vector<float>&, cv::Mat*, cv::Mat*);
+  void scale(cv::Mat*);
   
   
 private:

@@ -28,7 +28,7 @@ public:
 protected:
 
   bool m_first;
-  bool m_stop;
+  
 
   template <class T>
   float CalcMedian( typename std::vector<T>::const_iterator, typename std::vector<T>::const_iterator);
