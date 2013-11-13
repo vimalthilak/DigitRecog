@@ -3,7 +3,25 @@
 #include "DigitRecog/CannyEdgeTool.h"
 #include "DigitRecog/GaussianBlurTool.h"
 #include "DigitRecog/FeX.h"
+#include "DigitRecog/MLClassification.h"
 %}
+
+%include "exception.i"
+
+%exception {
+    try {
+        $action
+    }
+    catch (const std::exception & e)
+    {
+        SWIG_exception(SWIG_RuntimeError, (std::string("C++ std::exception in $decl: ") + e.what()).c_str());
+    }
+    catch (...)
+    {
+        SWIG_exception(SWIG_UnknownError, "C++ anonymous exception");
+    }
+}
+
 
 %include "std_string.i"
 %include "std_vector.i"
@@ -63,3 +81,34 @@ public:
   
   void addPreProcessorTool(IPreProcessorTools*);
 };
+
+
+
+class MLClassification 
+{
+
+public:
+   MLClassification(const std::string& n);
+   MLClassification(const std::string& n, TLogLevel);
+
+   void accumulateTrain(int, const std::vector<float>&);
+   void accumulateTest(int, const std::vector<float>&);
+  
+    void performCrossValidationTraining(unsigned int,
+                                      int max_depth, int min_sample, int num_var,
+                                      int num_trees=500);
+                                        
+   void setRootNtupleHelper(IRootNtupleWriterTool *);
+
+
+};
+
+
+
+
+
+
+
+
+
+

@@ -2,8 +2,13 @@
 #include "Services/IIncidentListener.h"
 #include <string>
 #include <vector>
+#include <unordered_map>
+#include <map>
+#include <utility>      // std::pair
+#include <mutex>
 
 class IRootNtupleWriterTool;
+class CvRTParams;
 
 namespace cv {
   class Mat;
@@ -14,25 +19,30 @@ class MLClassification: public Messaging, virtual public IIncidentListener
 public:
  
 
-  MLClassification(const std::string& n, IRootNtupleWriterTool* );
-  MLClassification(const std::string& n, TLogLevel, IRootNtupleWriterTool *);
+  MLClassification(const std::string& n);
+  MLClassification(const std::string& n, TLogLevel);
   ~MLClassification();
   
-  int initialize();
+  
   
   //1st arg: target
   //2nd arg: vector of attributes
   void accumulateTrain(int, const std::vector<float>&);
   void accumulateTest(int, const std::vector<float>&);
   
-  void performCrossValidationTraining(unsigned int);
+  void performCrossValidationTraining(unsigned int,
+                                      int max_depth, int min_sample, int num_var,
+                                      int num_trees=500);
   
+  void setRootNtupleHelper(IRootNtupleWriterTool * h) { m_ntuple_helper = h; }
     
   //IIncidentListener impl
   virtual void handle(const Incident&);
   
 protected:
 
+  int initialize();
+  
   cv::Mat * m_training_data;
   cv::Mat * m_training_classes;
     
@@ -44,7 +54,6 @@ protected:
   std::vector<float> m_training_max;
   std::vector<float> m_training_min;
     
-
   IRootNtupleWriterTool * m_ntuple_helper;
   
   std::size_t m_nvar;
@@ -54,8 +63,14 @@ protected:
   template <class T>
   void pushBack(const std::string & , const T*, IRootNtupleWriterTool *);
   
-  void accumulate(int, const std::vector<float>&, cv::Mat*, cv::Mat*);
+  void accumulate(int, const std::vector<float>&, cv::Mat*&, cv::Mat*&);
   void scale(cv::Mat*);
+  
+  std::mutex m_log_mtx;
+  
+  void train(const int , const CvRTParams* ,
+           const std::vector< std::vector<int> >&, std::unordered_map<unsigned int, std::pair<unsigned char,unsigned char> > &,
+           std::unordered_map<unsigned int, std::map< unsigned char, float > > &);
   
   
 private:

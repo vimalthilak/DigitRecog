@@ -83,6 +83,9 @@ int FeX::execute(int target, std::vector<float>& img) {
 #define AT2D_(vec, x, y) AT2D(vec, dim, x, y)
     
     
+    //LOG("Error Test!!",logERROR);
+    //LOG("WARNING Test!!",logWARNING);
+    
     LOG("In execute()", logVERBOSE);
     
     PUSHBACK(target, target)
