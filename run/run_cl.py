@@ -12,9 +12,9 @@ def main():
   print "hello"
   
   
-  root_svc_reader = RootNtupleReaderTool("RootToolReader","tree.root", "ttree", 3)
+  root_svc_reader = RootNtupleReaderTool("RootToolReader","tree.root", "ttree", 2)
   
-  ml = MLClassification("mlTool",3)
+  ml = MLClassification("mlTool",2)
   
   ientry = 0;
   while True:
@@ -34,11 +34,12 @@ def main():
       break
 
     ientry += 1
+    if (ientry == 5000): break
 
   print "read ", ientry, " entries"
   
   inc_svc = IncidentService.getInstance()
-  root_svc = RootNtupleWriterTool("RootTool", "tree_results.root", "train/ttree", 3)
+  root_svc = RootNtupleWriterTool("RootTool", "tree_results.root", "train/ttree", 2)
   ml.setRootNtupleHelper(root_svc)
   
   inc_svc.fireIncident(Incident("BeginRun"))
@@ -55,6 +56,7 @@ def main():
 
 
   ## bis
+  '''
   root_svc_bis = RootNtupleWriterTool("RootToolBis", "tree_results.root", "test/ttree", 3)
   ml.setRootNtupleHelper(root_svc_bis)
   
@@ -66,7 +68,8 @@ def main():
     print "Cauth Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))
     return 1
-
+  '''
+  
   inc_svc.fireIncident(Incident("EndRun"))
 
   

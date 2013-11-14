@@ -217,6 +217,37 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
 
     
     
+    std::vector<char> th_successes;
+    th_successes.resize(n_regions, true);
+    
+    std::vector<std::thread> threads;
+    
+    std::vector< std::unordered_map<unsigned int, std::pair<unsigned char,unsigned char> > > results;
+    results.resize(n_regions);
+                
+    std::vector< std::unordered_map<unsigned int, std::map< unsigned char, float > > > results_prob;
+    results_prob.resize(n_regions);
+
+    for (unsigned int i = 0; i<n_regions; ++i) {
+    
+       results[i].reserve(m_training_data->size().height/n_regions); //estimate
+       results_prob[i].reserve(m_training_data->size().height/n_regions);
+                    
+       threads.push_back( std::thread(&MLClassification::train, this, std::ref(th_successes[i]), i, &RF_params,
+                                     std::ref(cv_indices), std::ref(results[i]), std::ref(results_prob[i])) );
+        
+    }
+    
+    LOG("Synchronizing threads...", logINFO);
+    for (auto& th : threads) th.join();
+    
+    for (auto suc : th_successes) {
+        if (!suc) { LOG("Prob with thread..", logERROR); return; }
+    }
+    
+    LOG("...Done", logINFO);
+    
+    
     
     /////test
     /////////////////
@@ -243,7 +274,7 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
 
 
 
-void MLClassification::train(const int i, const CvRTParams* RF_params,
+void MLClassification::train(char & success, const int i, const CvRTParams* RF_params,
                       const std::vector< std::vector<int> >& cv_indices,
                       std::unordered_map<unsigned int, std::pair<unsigned char,unsigned char> > & results,
                       std::unordered_map<unsigned int, std::map< unsigned char, float > > & results_prob) {
@@ -252,11 +283,13 @@ void MLClassification::train(const int i, const CvRTParams* RF_params,
 #define CATCH(str)  catch (const std::exception& ex) { \
                       std::lock_guard<std::mutex> lock(m_log_mtx); \
                       LOG("Caught Exception in " #str " : " <<ex.what(), logWARNING); \
+                      success = false;\
                       return;\
                     }\
                     catch(...) {\
                       std::lock_guard<std::mutex> lock(m_log_mtx);\
                       LOG("Caught unknown Exception in " #str, logWARNING);\
+                      success = false;\
                       return;\
                     }
     
@@ -315,6 +348,7 @@ void MLClassification::train(const int i, const CvRTParams* RF_params,
         if ( !is_good) {
            std::lock_guard<std::mutex> lock(m_log_mtx);
            LOG("RF.predict_prob_multiclass failed..", logWARNING)
+           success = false;
            break;
         }
         
