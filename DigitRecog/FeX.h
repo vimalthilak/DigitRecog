@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#define FLOAT double
+
 class IRootNtupleWriterTool;
 class IPreProcessorTools;
 
@@ -31,7 +33,7 @@ protected:
   
 
   template <class T>
-  float CalcMedian( typename std::vector<T>::const_iterator, typename std::vector<T>::const_iterator);
+  FLOAT CalcMedian( typename std::vector<T>::const_iterator, typename std::vector<T>::const_iterator);
 
   IRootNtupleWriterTool * m_ntuple_helper;
   IRootNtupleWriterTool * m_ntuple_helper_metadata;

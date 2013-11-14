@@ -17,6 +17,21 @@
 #include <cmath>
 #include <set>
 
+//root
+#include <TH2F.h>
+#include <TH1F.h>
+#include <TMultiGraph.h>
+#include <TGraph.h>
+#include <TGraphAsymmErrors.h>
+#include <TVirtualFitter.h>
+#include <TGraphErrors.h>
+#include <TFitResultPtr.h>
+#include <TFitResult.h>
+
+#ifndef ROOT_Math_MinimizerOptions
+#include "Math/MinimizerOptions.h"
+#endif
+
 
 //helper macros
 #define REGBRANCH_S(name, type, initVal) m_ntuple_helper->registerBranch(#name, new SingleObjectHolder< type >(initVal));
@@ -97,7 +112,7 @@ void MLClassification::init(std::size_t s_) {
 
 // Accumulate
 //////////////////////////////
-void MLClassification::accumulate(int target, const std::vector<float>& features, cv::Mat * & data, cv::Mat * & classes) {
+void MLClassification::accumulate(int target, const std::vector<double>& features, cv::Mat * & data, cv::Mat * & classes) {
     
     
     if (!data) {
@@ -116,8 +131,9 @@ void MLClassification::accumulate(int target, const std::vector<float>& features
                                         features.size()<<", expecting: "<<m_nvar, logERROR); return;}
     
     
+    std::vector<float> features_flt(features.begin(), features.end());
         
-    cv::Mat input(features, false); //copydata=false
+    cv::Mat input(features_flt, false); //copydata=false
     cv::Mat input_transpose = input.t();
     
     data->push_back(input_transpose); //transpose so we have one row with m_nvar columns
@@ -128,7 +144,7 @@ void MLClassification::accumulate(int target, const std::vector<float>& features
 
 // Accumulate - Training
 //////////////////////////////
-void MLClassification::accumulateTrain(int target, const std::vector<float>& features) {
+void MLClassification::accumulateTrain(int target, const std::vector<double>& features) {
 
   accumulate(target, features, m_training_data, m_training_classes);
   
@@ -139,7 +155,7 @@ void MLClassification::accumulateTrain(int target, const std::vector<float>& fea
   }
   
   for (std::size_t it_val = 0; it_val < m_nvar; ++it_val) {
-      float val = features.at(it_val);
+      double val = features.at(it_val);
       if (val > m_training_max.at(it_val)) m_training_max[it_val] = val;
       if (val < m_training_min.at(it_val)) m_training_min[it_val] = val;
   }
@@ -148,7 +164,7 @@ void MLClassification::accumulateTrain(int target, const std::vector<float>& fea
 
 // Accumulate - Testing
 //////////////////////////////
-void MLClassification::accumulateTest(int target, const std::vector<float>& features) {
+void MLClassification::accumulateTest(int target, const std::vector<double>& features) {
 
   accumulate(target, features, m_testing_data, m_testing_classes);
   
@@ -180,6 +196,7 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
     //scale data --> [-1, 1]
     scale(m_training_data);
     
+        
     //randomly seperate sample into four equal parts
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0,n_regions-1); // generates number in the range 0..n_regions-1
@@ -198,7 +215,7 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
        oss<<cv_indices[i].size()<< ", ";
        ss += oss.str();
     }
-    LOG(ss, logDEBUG);
+    LOG(ss, logINFO);
     
     
     /////////// RF param
@@ -247,11 +264,225 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
     
     LOG("...Done", logINFO);
     
+    ////////////////////////////////
+    // Analyzing results of cross-validation procedure.
+    // Histograms/Graph written to current ROOT directory (i.e. last file opened, in this case from RootNtupleWriterTool)
+    ////////////////////////////////
     
+    TH2F * res_correct = new TH2F("res_correct","res_correct", 110, 0, 1.1, 10, 0, 10 );
+    TH2F * res_wrong = new TH2F("res_wrong","res_wrong", 110, 0, 1.1, 10, 0, 10 );
+    
+    std::vector<TH1F*> reliability_vec;
+    reliability_vec.reserve(10);
+    
+    std::vector<TH1F*> reliability_total_vec;
+    reliability_total_vec.reserve(10);
+    
+    for (int i = 0; i < 10; ++i)  {
+        std::ostringstream oss_;
+        oss_<<"_"<<i;
+        
+        reliability_vec.push_back(new TH1F(("reliability"+oss_.str()).c_str(),("reliability"+oss_.str()).c_str(), 21, -0.025, 1.025) );
+        reliability_vec.back()->Sumw2();
+        reliability_vec.back()->SetDirectory(0); //do not auto-save histo
+        
+        reliability_total_vec.push_back(new TH1F(("reliability_total"+oss_.str()).c_str(),("reliability_total"+oss_.str()).c_str(), 21, -0.025, 1.025) );
+        reliability_total_vec.back()->Sumw2();
+        reliability_total_vec.back()->SetDirectory(0); //do not auto-save histo
+    }
+    
+    float brier_score = 0.;
+    for (std::size_t i_cv = 0; i_cv < results_prob.size(); ++i_cv) //loop over cv regions (1..n_regions)
+        for (auto const & res_p : results_prob.at(i_cv) ) //loop over map of (sample, results)
+        {
+            
+            unsigned char val_pred;
+            unsigned char val_truth;
+            try {
+                val_pred =  results.at(i_cv).at(res_p.first).second;
+                val_truth = results.at(i_cv).at(res_p.first).first;  }
+            catch (const std::out_of_range& oor) { LOG("Out of Range error: " << oor.what(), logWARNING); break;}
+            
+            bool correct = (val_pred == val_truth);
+            
+            TH2F * hist = (correct) ? res_correct : res_wrong ;
+            hist->Fill( res_p.second.at(val_pred),  static_cast<float>(val_pred) + 0.5 );
+            
+            //brier score:
+            for (auto const & res_p_individual : res_p.second)
+                brier_score += ( val_truth == res_p_individual.first ) ? (res_p_individual.second - 1.)*(res_p_individual.second - 1.)
+                : (res_p_individual.second )*(res_p_individual.second );
+            
+            for (int i = 0; i < 10; ++i) {
+                //  brier_score += std::pow(((int)val_pred == i) - ( (int)val_truth == i), 2);
+                
+                //reliability
+                
+                if ((int)val_truth == i) reliability_vec[i]->Fill(res_p.second.at(i));
+                reliability_total_vec[i]->Fill(res_p.second.at(i));
+            }
+            
+            
+        }
+    
+    std::vector<TGraphAsymmErrors*> reliability_graph_vec;
+    reliability_graph_vec.reserve(10);
+    
+    ROOT::Math::MinimizerOptions::SetDefaultMaxFunctionCalls(50000);
+    
+    for (int i = 0; i < 10; ++i) {
+        TGraphAsymmErrors *reliability_graph = new TGraphAsymmErrors();
+        reliability_graph_vec.push_back(reliability_graph);
+        
+        reliability_graph->Divide(reliability_vec[i],reliability_total_vec[i],"cl=0.683 b(1,1) mode e0");
+        
+        //fitting
+        TF1 * f1 = new TF1("f1", "1/TMath::Power((1 + [0]*exp(-1*[1]*(x-[2]))),1./[3])", 0.01, 1.01); //skip first bin...giving us trouble..
+        f1->SetParameters(1,10,0.5,1);
+        
+        TF1 * f2 = new TF1("f2", "1/(1 + exp(-1*[0]*(TMath::Power(x,[2])-[1])))", 0.01, 1.01);
+        f2->SetLineColor(kBlue);
+        f2->SetParameters(10,0.5,0.5);
+        
+        TF1 * f3 = new TF1("f3", "1-exp(-1.*[0]*(TMath::Power(x,[1])))", 0.01, 1.01);
+        f3->SetLineColor(kGreen);
+        f3->SetParameters(10,2);
+        
+        //(TVirtualFitter::GetFitter())->Clear();
+        //f1->SetParLimits(3,0, 10);
+        TFitResultPtr fit = reliability_graph->Fit(f1, "ESQR+"); //TFitResultPtr fit =  reliability_graph->Fit(f1, "EMSQ"); // fit->Chi2()/fit->Ndf()
+        float fit_chi2_ndf_1 = fit->Chi2()/fit->Ndf();
+        
+        
+        //if (fit_res) std::cout<<"fit result non zero for "<<i<<": "<<fit_res<<std::endl;
+        
+        TGraphErrors *grint = new TGraphErrors(reliability_graph->GetN()-1);
+        for (int ii_n = 0; ii_n < grint->GetN(); ++ii_n) grint->SetPoint(ii_n, reliability_graph->GetX()[ii_n+1],0);//skip first bin
+        (TVirtualFitter::GetFitter())->GetConfidenceIntervals(grint, 0.683);
+        grint->SetLineColor(kRed);
+        
+        
+        //flush to file
+        std::ostringstream oss_;
+        oss_<<"_"<<i;
+        grint->Write(("reliability_graph1_68cl"+oss_.str()).c_str());
+        delete grint;
+        
+        //f2////
+        (TVirtualFitter::GetFitter())->Clear();
+        fit = reliability_graph->Fit(f2, "ESQR+"); //TFitResultPtr fit =  reliability_graph->Fit(f1, "EMSQ"); // fit->Chi2()/fit->Ndf()
+        float fit_chi2_ndf_2 = fit->Chi2()/fit->Ndf();
+        
+        grint = new TGraphErrors(reliability_graph->GetN()-1);
+        for (int ii_n = 0; ii_n < grint->GetN(); ++ii_n) grint->SetPoint(ii_n, reliability_graph->GetX()[ii_n+1],0); //skip first bin
+        (TVirtualFitter::GetFitter())->GetConfidenceIntervals(grint, 0.683);
+        grint->SetLineColor(kBlue);
+        grint->Write(("reliability_graph2_68cl"+oss_.str()).c_str());
+        delete grint;
+        ////
+        
+        //f3////
+        (TVirtualFitter::GetFitter())->Clear();
+        fit = reliability_graph->Fit(f3, "ESQR+"); //TFitResultPtr fit =  reliability_graph->Fit(f1, "EMSQ"); // fit->Chi2()/fit->Ndf()
+        float fit_chi2_ndf_3 = fit->Chi2()/fit->Ndf();
+        
+        grint = new TGraphErrors(reliability_graph->GetN()-1);
+        for (int ii_n = 0; ii_n < grint->GetN(); ++ii_n) grint->SetPoint(ii_n, reliability_graph->GetX()[ii_n+1],0); //skip first bin
+        (TVirtualFitter::GetFitter())->GetConfidenceIntervals(grint, 0.683);
+        grint->SetLineColor(kGreen);
+        grint->Write(("reliability_graph3_68cl"+oss_.str()).c_str());
+        delete grint;
+        ////
+        
+        
+        LOG("f1: "<<fit_chi2_ndf_1<<"  f2: "<<fit_chi2_ndf_2<<"  f3: "<<fit_chi2_ndf_3, logINFO);
+        
+        
+        //flush to file
+        reliability_graph->Write(("reliability_graph"+oss_.str()).c_str());
+        
+        
+        (TVirtualFitter::GetFitter())->Clear();
+        
+        
+        float brier_reliability_score = 0.;
+        for (int i_bin = 1; i_bin <= reliability_total_vec[i]->GetNbinsX(); ++ i_bin) {
+            
+            float o_k = (reliability_total_vec[i]->GetBinContent(i_bin)>0) ?
+            reliability_vec[i]->GetBinContent(i_bin)/reliability_total_vec[i]->GetBinContent(i_bin)
+            : 0.;
+            float f_k = reliability_vec[i]->GetBinCenter(i_bin);
+            brier_reliability_score += reliability_total_vec[i]->GetBinContent(i_bin) * (f_k-o_k) *(f_k-o_k);
+            
+        }
+        
+        LOG("Brier reliability score for "<<i<<": "<<brier_reliability_score/m_training_data->size().height, logINFO);
+        
+        //clean up
+        //delete reliability_graph;
+        delete f1;
+        delete f2;
+        delete f3;
+        
+        delete reliability_vec[i];
+        delete reliability_total_vec[i];
+    }
+    
+    reliability_vec.clear();
+    reliability_total_vec.clear();
+    
+    
+    //calibration - sanity plots
+    
+    TH1F * normalization = new TH1F("normalization", "normalization", 100, 0, 2);
+    
+    TH2F * max_prob = new TH2F("max_prob", "max_prob", 10, 0, 10, 10, 0, 10);
+    
+    for (std::size_t i_cv = 0; i_cv < results_prob.size(); ++i_cv) //loop over cv regions (1..n_regions)
+        for (auto const & res_p : results_prob.at(i_cv) ) //loop over map of (sample, results)
+        {
+            
+            float norm = 0;
+            std::map<int, float> new_prob;
+            for (auto const & res_p_map : res_p.second ) {
+                
+                std::size_t num = (int)res_p_map.first;
+                float score = res_p_map.second;
+                
+                float prob = reliability_graph_vec.at(num)->GetFunction("f3")->Eval(score);
+                new_prob[num] = prob;
+                norm += prob;
+                
+            }
+            
+            for (auto & n : new_prob)
+                n.second /= norm;
+            
+            
+            int largest_prob_bef = (int)(*map_max_element(res_p.second)).first;
+            int largest_prob_aft = (*map_max_element(new_prob)).first;
+            
+            max_prob->Fill(largest_prob_bef+0.5, largest_prob_aft+0.5);
+            
+            normalization->Fill(norm);
+            
+            
+        }
+    
+    //clean up
+    for (auto & g : reliability_graph_vec)
+        delete g;
+    
+    reliability_graph_vec.clear();
+    
+    
+    LOG("Brier score: "<<brier_score/m_training_data->size().height, logINFO);
+
     
     /////test
     /////////////////
     // Get handle on IncidentSvc
+    /*
     IncidentService * inc_svc = IncidentService::getInstance();
     if (!inc_svc) {LOG("Coulnd't get IncidentService", logERROR); return; }
 
@@ -264,7 +495,7 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
         
         inc_svc->fireIncident(Incident("EndEvent"));
     }
-    
+    */
    
 
 
@@ -309,20 +540,25 @@ void MLClassification::train(char & success, const int i, const CvRTParams* RF_p
    }
    CATCH(MLClassification::train)
    
+   if(true) {
+        std::lock_guard<std::mutex> lock(m_log_mtx);
+        LOG("Done training, thread "<<i, logINFO);
+   }
+   
    // retrieving results
    cv::Mat test_sample;
    
    for (unsigned int tsample = 0; tsample < line_num; ++tsample) //line_num
    {
         if ( sample_idx.at<unsigned char>(tsample) == 1 ) continue;
-        
-        
+       
+       
         // extract a row from the testing matrix
-        
+       
         test_sample = training_data.row(tsample);
-        
+       
         // run random forest prediction
-        
+       
         double result = -1.;
         try {
            result = RF.predict(test_sample);

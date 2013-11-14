@@ -27,6 +27,7 @@
 %include "std_vector.i"
 
 namespace std {
+       %template(DoubleVector) vector<double>;
        %template(FloatVector) vector<float>;
 }
 
@@ -91,8 +92,8 @@ public:
    MLClassification(const std::string& n);
    MLClassification(const std::string& n, TLogLevel);
 
-   void accumulateTrain(int, const std::vector<float>&);
-   void accumulateTest(int, const std::vector<float>&);
+   void accumulateTrain(int, const std::vector<double>&);
+   void accumulateTest(int, const std::vector<double>&);
   
     void performCrossValidationTraining(unsigned int,
                                       int max_depth, int min_sample, int num_var,

@@ -15,11 +15,11 @@ def _run(tool):
   with open("/Users/chaber/test_kaggle/digit/train_unix.csv", "r") as f:
      csv_reader = csv.reader(f)
      for row in csv_reader:
-        row_int = map(int,row) #convert to list of integer (from list of string)
+        row_int = map(float,row) #convert to list of floats (from list of string)
   
         inc_svc.fireIncident(Incident("BeginEvent"))
       
-        digit_class = row_int[0]
+        digit_class = int(row[0])
         img_vec = FloatVector(row_int[1:])
 
         try:

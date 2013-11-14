@@ -1,6 +1,6 @@
 import sys
 from Services.python.IncidentService import IncidentService, Incident
-from DigitRecog.python.DigitRecog import MLClassification , FloatVector
+from DigitRecog.python.DigitRecog import MLClassification
 from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value
 
 from exceptions import BaseException
@@ -19,7 +19,7 @@ def main():
   ientry = 0;
   while True:
     try:
-      vec = root_svc_reader.GetBranchEntry_FloatVector("features",ientry)
+      vec = root_svc_reader.GetBranchEntry_DoubleVector("features",ientry)
       targ = root_svc_reader.GetBranchEntry_Int("target", ientry)
     except BaseException as e:
       print "Cauth Error! -> ", str(e)
@@ -34,9 +34,12 @@ def main():
       break
 
     ientry += 1
-    if (ientry == 5000): break
+    if (ientry == 15000): break
 
   print "read ", ientry, " entries"
+  
+  if ( ientry != 15000): return 1
+  
   
   inc_svc = IncidentService.getInstance()
   root_svc = RootNtupleWriterTool("RootTool", "tree_results.root", "train/ttree", 2)

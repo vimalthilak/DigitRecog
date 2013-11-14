@@ -26,10 +26,10 @@ python/DigitRecog_wrap.cxx:
 	swig -Wall -c++ -python python/DigitRecog.i
 
 lib/libDigitRecog.so: $(OBJ_FILES)
-	$(CC) $(LDFLAGS) $(LDFLAGSEXTRA)libDigitRecog.so $^ -L../Services/lib -lServices -L../UtilityToolsInterfaces/lib -lObjectHolder -L/opt/local/lib/ -lopencv_ml -lopencv_core  -Xlinker -rpath -Xlinker `dirname \`pwd\`` -o $@
+	$(CC) $(LDFLAGS) $(LDFLAGSEXTRA)libDigitRecog.so $^ -L../Services/lib -lServices -L../UtilityToolsInterfaces/lib -lObjectHolder -L/opt/local/lib/ -lopencv_ml -lopencv_core `root-config --libs`  -Xlinker -rpath -Xlinker `dirname \`pwd\`` -o $@
 
 build/%.o: src/%.cxx
-	$(CC) $(CFLAGS) -I../Services -I../UtilityToolsInterfaces $< -o $@
+	$(CC) $(CFLAGS) -I../Services -I../UtilityToolsInterfaces `root-config --cflags` $< -o $@
 
 clean:
 	rm -r build/
