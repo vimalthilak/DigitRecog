@@ -29,6 +29,7 @@
 #include <TGraphErrors.h>
 #include <TFitResultPtr.h>
 #include <TFitResult.h>
+#include <TDirectory.h>
 
 #ifndef ROOT_Math_MinimizerOptions
 #include "Math/MinimizerOptions.h"
@@ -46,7 +47,7 @@
 MLClassification::MLClassification(const std::string& n):
         Messaging(n), m_training_data(0), m_training_classes(0), m_var_type(0),
                       m_testing_data(0), m_testing_classes(0),
-        m_ntuple_helper(0), m_nvar(0) {
+        m_ntuple_helper(0), m_nvar(0), m_trained_forest(0) {
     
     Register();
     
@@ -56,7 +57,7 @@ MLClassification::MLClassification(const std::string& n):
 MLClassification::MLClassification(const std::string& n, TLogLevel m_lvl):
          Messaging(n, m_lvl), m_training_data(0), m_training_classes(0), m_var_type(0),
                       m_testing_data(0), m_testing_classes(0),
-         m_ntuple_helper(0), m_nvar(0) {
+         m_ntuple_helper(0), m_nvar(0), m_trained_forest(0) {
     
     Register();
     
@@ -69,6 +70,8 @@ MLClassification::~MLClassification() {
   if (m_var_type) delete m_var_type;
   if (m_testing_data) delete m_testing_data;
   if (m_testing_classes) delete m_testing_classes;
+  
+  if (m_trained_forest) delete m_trained_forest;
 
 }
 
@@ -175,6 +178,9 @@ void MLClassification::accumulateTest(int target, const std::vector<double>& fea
 
 void MLClassification::scale(cv::Mat* data) {
 
+   bool is_scaled  = (m_is_scaled.find(data) == m_is_scaled.end()) ? false : true;
+   if (is_scaled) { LOG("Attempting to scale same dataset twice...ignoring", logWARNING); return; }
+
    //sanity
    if ((int)m_nvar != data->size().width) {LOG("Prob, width of matrix mismatch", logERROR); return; }
    if ( m_training_max.empty() || m_training_min.empty() || m_training_max.size() != m_training_min.size() || m_training_max.size() != m_nvar) {
@@ -186,14 +192,350 @@ void MLClassification::scale(cv::Mat* data) {
              data->at<float>(i_values,i) = ( (data->at<float>(i_values,i) - m_training_min.at(i))/(m_training_max.at(i)-m_training_min.at(i)))*2. + -1.;  //[-1, +1]
         }
     }
+    
+    m_is_scaled[data] = true;
 
 }
+
+//testig
+/////////////////////////
+void MLClassification::performTesting(const std::string& train_dir) {
+    
+    if ( !m_testing_data || !m_testing_classes || !m_var_type) { LOG("No accumulated testing data!",logERROR); return; }
+    if ( !m_trained_forest ) { LOG("No Trained Forest !", logERROR); return; }
+    
+    //scaling according to trained data
+    //scale data --> [-1, 1]
+    scale(m_testing_data);
+    
+    LOG("Now testing..", logDEBUG);
+    
+    unsigned int num_testing = m_testing_data->size().height;
+    
+    std::unordered_map<unsigned int, std::pair<unsigned char,unsigned char> > results;
+    results.reserve(num_testing);
+    std::unordered_map<unsigned int, std::map< unsigned char, float > > results_prob;
+    results_prob.reserve(num_testing);
+    
+    cv::Mat test_sample;
+    for (unsigned int tsample = 0; tsample < num_testing; ++tsample) {
+        
+        test_sample = m_testing_data->row(tsample);
+        
+        //probabilities
+        std::vector< std::pair<float, float> > results_probabilities;
+        
+        bool is_good = false;
+        double result = -1.;
+        try {
+            result = m_trained_forest->predict(test_sample, cv::Mat());
+            is_good = m_trained_forest->predict_prob_multiclass( test_sample, cv::Mat(), results_probabilities);
+        }
+        catch (const std::exception& ex) {
+            LOG("Caught Exception in MLClassification::performTesting : " <<ex.what(), logWARNING);
+            return;
+        }
+        catch(...) {
+            LOG("Caught unknown Exception in MLClassification::performTesting", logWARNING);
+            return;
+        }
+        //sanity check
+        if ( !is_good) { LOG("prob with testing multi-class..",logERROR); break; }
+        
+        
+        int res_int = (int)(result+0.1);
+        results[tsample] = std::make_pair(static_cast<unsigned char>(m_testing_classes->at<int>(tsample)), static_cast<unsigned char>(res_int));
+        
+        auto& res_prob = results_prob[tsample];
+        for (auto const & res : results_probabilities) {
+            unsigned char value = static_cast<unsigned char>(res.first+0.1);
+            res_prob[value] = res.second;
+            
+        }
+        
+    }
+    
+    LOG("..done testing", logDEBUG);
+    
+    //We assume that the current ROOT directory (pointed to by gDirectory) is where the results are saved
+    //The calibration functions, however, are saved in another directory : train_dir
+
+    //retrieve calib functions
+    LOG("Root path: "<< gDirectory->GetPath(), logINFO);
+    
+    TDirectory * origDir = gDirectory;
+    
+    if (!gDirectory->cd(("../" + train_dir).c_str()) && !gDirectory->cd(train_dir.c_str())) {
+       LOG("Couldn't find dir "<<train_dir,logERROR);
+       return;
+    }
+    
+    LOG("Root path: "<< gDirectory->GetPath(), logINFO);
+    
+    //calibration ! 
+    TF1 const * calib_functions[10] = {0,0,0,0,0,0,0,0,0,0};
+    TGraphErrors const * sigma_fit[10] = {0,0,0,0,0,0,0,0,0,0};
+    
+    for (int i = 0; i<10; ++i) {
+        std::ostringstream oss_;
+        oss_<<"_"<<i;
+        const TGraphAsymmErrors *reliability_graph = 0;
+        gDirectory->GetObject( ("reliability_graph"+oss_.str()).c_str() , reliability_graph );
+        if (!reliability_graph) { LOG("prob retrieving graph", logERROR); break; }
+        
+        //pick "best-fit" function
+        std::vector<std::string> func_names;
+        func_names.push_back("f1"); func_names.push_back("f2"); func_names.push_back("f3");
+        std::string the_func = "";
+        float smallest_chi2_ndf = 99.;
+        for (auto const & f_names : func_names) {
+            const TF1 * func = reliability_graph->GetFunction(f_names.c_str());
+            if (!func)  { LOG("prob retrieving function "<<f_names, logWARNING); continue; }
+            if ( func->GetChisquare()/func->GetNDF() < smallest_chi2_ndf) {
+                smallest_chi2_ndf = func->GetChisquare()/func->GetNDF();
+                the_func = f_names;
+            }
+        }
+        
+        
+        const TF1 * func = reliability_graph->GetFunction(the_func.c_str());
+        if (!func)  { LOG("prob retrieving function "<<the_func, logERROR); break; }
+  
+        calib_functions[i] = func;
+        
+        //cl one sigma
+        const TGraphErrors * cl_graph = 0;
+        gDirectory->GetObject( ("reliability_graph" + the_func.substr(1,1) + "_68cl"+oss_.str()).c_str() , cl_graph );
+        if (!cl_graph) { LOG("prob retrieving cl graph", logERROR); break; }
+        
+        sigma_fit[i] = cl_graph;
+        
+        LOG(" for digit "<<i<< " function chosen is : "<<the_func, logINFO);
+    
+    }
+
+    origDir->cd();
+    
+    LOG("Root path: "<< gDirectory->GetPath(), logINFO);
+
+
+    /////////////////////
+    // Calibrate raw results
+    /////////////////////
+    
+    //int t_ = 0;
+    std::unordered_map<unsigned int, std::map< unsigned char, float> > results_prob_unc; //lots of redundancy...
+    for (auto & res_p : results_prob ) //loop over map of (sample, results)
+    {
+        
+        
+        float norm = 0;
+        std::map<int, std::pair<float, float> > new_prob;
+        for (auto const & res_p_map : res_p.second ) {
+            
+            std::size_t num = (int)res_p_map.first;
+            float score = res_p_map.second;
+            
+            auto & p = new_prob[num];
+            float prob = calib_functions[num]->Eval(score);
+            if (prob > 1.) prob = 1.;
+            if (prob < 0.) prob = 0.;
+            
+            p.first = prob;
+            
+            int bin = -1; //(int)(score/0.05 + 0.001);
+            float closest = 99.;
+            for (int j = 0; j< sigma_fit[num]->GetN(); ++j) {
+                float dist = std::fabs(score-sigma_fit[num]->GetX()[j]);
+                if ( dist < closest) { closest = dist; bin = j; }
+            }
+            if (closest > 0.025001*2.) {LOG("what ? "<<closest<<" "<<bin, logWARNING);} //we skipped first bin so max is 0.05
+            
+            
+            float cl_68 = sigma_fit[num]->GetErrorY(bin);
+            p.second = cl_68;
+            
+            norm += prob;
+            
+        }
+        
+        float sum_sigma_2 = 0.;
+        for (auto const & p : new_prob) {
+            sum_sigma_2 += p.second.second * p.second.second;
+        }
+        
+        auto & unc_map = results_prob_unc[res_p.first];
+        
+        //update values (score->probability)
+        for (auto & n : res_p.second) {
+            
+            //unc
+            float sigma_i = new_prob[(int)n.first].second;
+            
+            //sigma_i is unc. on f_i
+            unc_map[(int)n.first] = sigma_i; //std::sqrt(sigma_i*sigma_i - 2*sigma_i*sigma_i*sigma_i*sigma_i/sum_sigma_2 + sum_sigma_6/(sum_sigma_2*sum_sigma_2));
+            
+            n.second = new_prob[(int)n.first].first + ((1.-norm)/sum_sigma_2)*sigma_i*sigma_i; //new_prob[(int)n.first].first/norm;
+        }
+        
+        
+        //test for < 0, > 1
+        norm = 0;
+        bool t = false;
+        for (auto & n : res_p.second) {
+            if ( n.second>1.) { t = true; n.second=1.; }
+            if ( n.second<0.) { t = true; n.second=0.; }
+            norm += n.second;
+        }
+        
+        if (t) {
+            //renormalize
+            for (auto & n : res_p.second) n.second /= norm;
+        }
+        
+    } //loop over results
+
+    
+    ///////////////////
+    // Analyze results
+    ///////////////////
+    
+
+    // Get handle on IncidentSvc
+    IncidentService * inc_svc = IncidentService::getInstance();
+    if (!inc_svc) {LOG("Coulnd't get IncidentService", logERROR); return; }
+    
+    ///
+    //confusion matrix
+    TH3F * results_matrix = new TH3F("results_matrix","results_matrix", 11,0,11, 11, 0, 11, 11, 0, 11);
+
+     for (auto const & pairs : results) { //pairs == dereferenced map iterator
+            
+            try { results_prob.at(pairs.first); }
+            catch (const std::out_of_range& oor) { LOG("Out of Range error: " << oor.what(), logERROR); break;}
+            
+            //std::map< unsigned char, float >
+            const auto & prob = results_prob.at(pairs.first);
+            //std::pair<unsigned char, float>
+            const auto & largest_prob = *map_max_element(prob);
+            
+            
+            int truth = static_cast<int>(pairs.second.first);
+            int prediction = static_cast<int>(pairs.second.second);
+            results_matrix->Fill(truth+0.5, prediction+0.5, 0.5);//bin center
+            
+            //alternative:
+            prediction =  static_cast<int>(largest_prob.first);
+            //if(largest_prob.second > 0.8)
+            results_matrix->Fill(truth+0.5, prediction+0.5, 1. + (int)(largest_prob.second*10.));
+         
+            //////////////////
+            // Start filling TTree with results
+            //////////////////
+            inc_svc->fireIncident(Incident("BeginEvent"));
+            
+            PUSHBACK(target, truth);
+            prediction = static_cast<int>(pairs.second.second);
+            PUSHBACK(prediction, prediction);
+  
+            for (int i = 0; i < 10; ++i) {
+                
+                PUSHBACK(prediction_prob, prob.at(i));
+                
+            }
+            
+            // signal end of event --> flushes data to TTree
+            inc_svc->fireIncident(Incident("EndEvent"));
+    
+    }
+
+    
+    /////////////
+    // confusion matrix post-process
+    ////////////
+    
+    //compute total # of hits per row/column
+    for (int z_bin = 1; z_bin <= results_matrix->GetNbinsZ(); ++z_bin ) {
+        
+        for (int i_bin = 1; i_bin< results_matrix->GetNbinsX(); ++i_bin ) {
+            
+            int tot = results_matrix->Integral(i_bin,i_bin, 0,10, z_bin, z_bin);
+            results_matrix->SetBinContent(i_bin, results_matrix->GetNbinsY(),z_bin, tot);
+            
+        }
+        
+        for (int i_bin = 1; i_bin< results_matrix->GetNbinsY(); ++i_bin ) {
+            
+            int tot = results_matrix->Integral(0,10, i_bin,i_bin, z_bin, z_bin);
+            results_matrix->SetBinContent(results_matrix->GetNbinsX(), i_bin, z_bin, tot);
+        }
+        
+    }
+    ///////////
+
+}
+
+
+//training
+//////////////////////////
+void MLClassification::performTraining(int max_depth, int min_sample, int num_var,
+                                       int num_trees) { //max_tress=500 (default)
+    
+    if ( !m_training_data || !m_training_classes || !m_var_type) { LOG("No accumulated training data!",logERROR); return; }
+    
+    LOG("Now training..", logINFO);
+    
+    //scale data --> [-1, 1]
+    scale(m_training_data); //will be ignored if performCrossValidationTraining executed first
+    
+    //for progress bar
+    std::cerr<<std::endl;
+    
+    std::atomic<int> console_offset(0);
+    m_trained_forest = new MyCvRTrees(1, &console_offset);
+    
+    
+    /////////// RF param
+    CvRTParams RF_params( max_depth,        // max depth
+                         min_sample,        // min sample count
+                                  0,        // regression accuracy: N/A here
+                              false,        // compute surrogate split, no missing data
+                                 15,        // max number of categories (use sub-optimal algorithm for larger numbers)
+                                  0,        // the array of priors
+                              false,        // calculate variable importance
+                            num_var,        // number of variables randomly selected at node and used to find the best split(s). 0 -> sqrt(NVAR)
+                          num_trees,        // max number of trees in the forest
+                            0.0001f,        // forrest accuracy
+                    CV_TERMCRIT_ITER        // | CV_TERMCRIT_EPS  // termination cirteria
+                                    );
+
+    const cv::Mat& training_data = *m_training_data;
+    const cv::Mat& training_classes = *m_training_classes;
+    const cv::Mat& var_type = *m_var_type;
+    
+    try {
+      m_trained_forest->train(training_data, CV_ROW_SAMPLE, training_classes, cv::Mat(), cv::Mat(), var_type, cv::Mat(), RF_params);
+    }
+    catch (const std::exception& ex) {
+      LOG("Caught Exception in MLClassification::performTraining : " <<ex.what(), logWARNING); 
+      return;
+    }
+    catch(...) {
+      LOG("Caught unknown Exception in MLClassification::performTraining", logWARNING);
+      return;
+    }
+    
+    LOG(".. done training", logINFO);
+}
+
 
 // CV training
 ///////////////////////////
 void MLClassification::performCrossValidationTraining(unsigned int n_regions,
                                                       int max_depth, int min_sample, int num_var,
-                                                      int num_trees) { //max_tress=500 (default) 
+                                                      int num_trees) { //max_tress=500 (default)
+                                                      
+    if ( !m_training_data || !m_training_classes || !m_var_type) { LOG("No accumulated training data!",logERROR); return; }
 
     //scale data --> [-1, 1]
     scale(m_training_data);

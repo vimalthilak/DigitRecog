@@ -95,10 +95,15 @@ public:
    void accumulateTrain(int, const std::vector<double>&);
    void accumulateTest(int, const std::vector<double>&);
   
-    void performCrossValidationTraining(unsigned int,
+   void performCrossValidationTraining(unsigned int,
                                       int max_depth, int min_sample, int num_var,
                                       int num_trees=500);
-                                        
+   
+   void performTraining(int max_depth, int min_sample, int num_var,
+                        int num_trees=500);
+        
+   void performTesting(const std::string&);
+                             
    void setRootNtupleHelper(IRootNtupleWriterTool *);
 
 

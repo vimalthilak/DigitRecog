@@ -28,17 +28,18 @@ def main():
     if targ == None: break;
 
     try:
-      ml.accumulateTrain(intp_value(targ), vec)
+      if ientry < 5000 : ml.accumulateTrain(intp_value(targ), vec)
+      else : ml.accumulateTest(intp_value(targ), vec)
     except BaseException as e:
       print "Cauth Error! -> ", str(e)
       break
 
     ientry += 1
-    if (ientry == 5000): break
+    if (ientry == 10000): break
 
   print "read ", ientry, " entries"
   
-  if ( ientry != 5000): return 1
+  if ( ientry != 10000): return 1
   
   
   inc_svc = IncidentService.getInstance()
@@ -57,29 +58,34 @@ def main():
   root_svc.stop() #stop listening to Begin/EndEvent
   #inc_svc.fireIncident(Incident("EndRun"))
 
-
-  ## bis
-  '''
-  root_svc_bis = RootNtupleWriterTool("RootToolBis", "tree_results.root", "test/ttree", 3)
-  ml.setRootNtupleHelper(root_svc_bis)
-  
-  inc_svc.fireIncident(Incident("BeginRun"))
-  
   try:
-    ml.performCrossValidationTraining(4, 25, 5, 20)
+    ml.performTraining(25, 5, 20,100)
   except BaseException as e:
     print "Cauth Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))
     return 1
-  '''
-  
-  inc_svc.fireIncident(Incident("EndRun"))
 
+  ################
+  ######## testing
+  ################
   
+  root_svc_test = RootNtupleWriterTool("RootToolTest", "tree_results.root", "test/ttree", 2)
+  ml.setRootNtupleHelper(root_svc_test)
   
-  
+  inc_svc.fireIncident(Incident("BeginRun"))
+
+  try:
+    ml.performTesting("train")
+  except BaseException as e:
+    print "Cauth Error! -> ", str(e)
+    inc_svc.fireIncident(Incident("EndRun"))
+    return 1
+
+  #################
+
+  # we're done, save output
+  inc_svc.fireIncident(Incident("EndRun"))
   inc_svc.kill()
-  print "here"
   
 
 

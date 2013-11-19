@@ -11,6 +11,7 @@
 
 class IRootNtupleWriterTool;
 class CvRTParams;
+class MyCvRTrees;
 
 namespace cv {
   class Mat;
@@ -35,6 +36,11 @@ public:
   void performCrossValidationTraining(unsigned int,
                                       int max_depth, int min_sample, int num_var,
                                       int num_trees=500);
+    
+  void performTraining(int max_depth, int min_sample, int num_var,
+                       int num_trees=500);
+  
+  void performTesting(const std::string&);
   
   void setRootNtupleHelper(IRootNtupleWriterTool * h) { m_ntuple_helper = h; }
     
@@ -60,12 +66,16 @@ protected:
   
   std::size_t m_nvar;
   
+  MyCvRTrees * m_trained_forest;
+  
   void init(std::size_t);
     
   template <class T>
   void pushBack(const std::string & , const T*, IRootNtupleWriterTool *);
   
   void accumulate(int, const std::vector<double>&, cv::Mat*&, cv::Mat*&);
+  
+  std::map<cv::Mat*,bool> m_is_scaled;
   void scale(cv::Mat*);
   
   std::mutex m_log_mtx;
