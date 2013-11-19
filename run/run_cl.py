@@ -34,11 +34,11 @@ def main():
       break
 
     ientry += 1
-    if (ientry == 15000): break
+    if (ientry == 5000): break
 
   print "read ", ientry, " entries"
   
-  if ( ientry != 15000): return 1
+  if ( ientry != 5000): return 1
   
   
   inc_svc = IncidentService.getInstance()
@@ -48,7 +48,7 @@ def main():
   inc_svc.fireIncident(Incident("BeginRun"))
   
   try:
-    ml.performCrossValidationTraining(4,25, 5, 20)
+    ml.performCrossValidationTraining(4,25, 5, 20,100)
   except BaseException as e:
     print "Cauth Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))

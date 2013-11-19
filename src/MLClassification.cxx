@@ -14,11 +14,13 @@
 #include <thread>
 
 
+
 #include <cmath>
 #include <set>
 
 //root
 #include <TH2F.h>
+#include <TH3F.h>
 #include <TH1F.h>
 #include <TMultiGraph.h>
 #include <TGraph.h>
@@ -245,17 +247,24 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
     std::vector< std::unordered_map<unsigned int, std::map< unsigned char, float > > > results_prob;
     results_prob.resize(n_regions);
 
+    //for progress bars
+    for (unsigned int i = 0; i<n_regions; ++i) std::cerr<<std::endl;
+    //atomic here is probably not necessary, we're only modifying the value once mutex is locked...
+    std::atomic<int> console_offset(0);
+    
     for (unsigned int i = 0; i<n_regions; ++i) {
     
        results[i].reserve(m_training_data->size().height/n_regions); //estimate
        results_prob[i].reserve(m_training_data->size().height/n_regions);
                     
-       threads.push_back( std::thread(&MLClassification::train, this, std::ref(th_successes[i]), i, &RF_params,
+       threads.push_back( std::thread(&MLClassification::train, this, std::ref(th_successes[i]), i, std::ref(console_offset), &RF_params,
                                      std::ref(cv_indices), std::ref(results[i]), std::ref(results_prob[i])) );
         
     }
     
-    LOG("Synchronizing threads...", logINFO);
+    //LOG("Synchronizing threads...", logINFO);
+    
+    
     for (auto& th : threads) th.join();
     
     for (auto suc : th_successes) {
@@ -269,8 +278,18 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
     // Histograms/Graph written to current ROOT directory (i.e. last file opened, in this case from RootNtupleWriterTool)
     ////////////////////////////////
     
+    /////////////////
+    // Get handle on IncidentSvc
+    /////////////////
+    IncidentService * inc_svc = IncidentService::getInstance();
+    if (!inc_svc) {LOG("Coulnd't get IncidentService", logERROR); return; }
+    
     TH2F * res_correct = new TH2F("res_correct","res_correct", 110, 0, 1.1, 10, 0, 10 );
     TH2F * res_wrong = new TH2F("res_wrong","res_wrong", 110, 0, 1.1, 10, 0, 10 );
+    
+    ///
+    //confusion matrix
+    TH3F * results_matrix = new TH3F("results_matrix","results_matrix", 11,0,11, 11, 0, 11, 11, 0, 11);
     
     std::vector<TH1F*> reliability_vec;
     reliability_vec.reserve(10);
@@ -308,22 +327,74 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
             TH2F * hist = (correct) ? res_correct : res_wrong ;
             hist->Fill( res_p.second.at(val_pred),  static_cast<float>(val_pred) + 0.5 );
             
+            /////////
+            //confusion matrix
+            results_matrix->Fill(static_cast<float>(val_truth)+0.5, static_cast<float>(val_pred)+0.5, 0.5);
+            //std::pair<unsigned char, float>
+            const auto & largest_prob = *map_max_element(res_p.second);
+            //alternative:
+            int prediction =  static_cast<int>(largest_prob.first);
+            results_matrix->Fill(static_cast<float>(val_truth)+0.5, static_cast<float>(prediction)+0.5, 1.5);
+            ///////////////
+            
+            
+            //////////////////
+            // Start filling TTree with results
+            //////////////////
+            inc_svc->fireIncident(Incident("BeginEvent"));
+            
+            int target = static_cast<int>(val_truth);
+            int pred = static_cast<int>(val_pred);
+            
+            PUSHBACK(target, target);
+            PUSHBACK(prediction, pred);
+            
+            
             //brier score:
             for (auto const & res_p_individual : res_p.second)
                 brier_score += ( val_truth == res_p_individual.first ) ? (res_p_individual.second - 1.)*(res_p_individual.second - 1.)
                 : (res_p_individual.second )*(res_p_individual.second );
             
             for (int i = 0; i < 10; ++i) {
-                //  brier_score += std::pow(((int)val_pred == i) - ( (int)val_truth == i), 2);
-                
                 //reliability
-                
                 if ((int)val_truth == i) reliability_vec[i]->Fill(res_p.second.at(i));
                 reliability_total_vec[i]->Fill(res_p.second.at(i));
+                
+                PUSHBACK(prediction_prob, res_p.second.at(i));
+                
             }
+            
+            // signal end of event --> flushes data to TTree
+            inc_svc->fireIncident(Incident("EndEvent"));
             
             
         }
+    
+    LOG("Brier score: "<<brier_score/m_training_data->size().height, logINFO);
+    
+    /////////////
+    // confusion matrix post-process
+    ////////////
+    
+    //compute total # of hits per row/column
+    for (int z_bin = 1; z_bin <= results_matrix->GetNbinsZ(); ++z_bin ) {
+        
+        for (int i_bin = 1; i_bin< results_matrix->GetNbinsX(); ++i_bin ) {
+            
+            int tot = results_matrix->Integral(i_bin,i_bin, 0,10, z_bin, z_bin);
+            results_matrix->SetBinContent(i_bin, results_matrix->GetNbinsY(),z_bin, tot);
+            
+        }
+        
+        
+        for (int i_bin = 1; i_bin< results_matrix->GetNbinsY(); ++i_bin ) {
+            
+            int tot = results_matrix->Integral(0,10, i_bin,i_bin, z_bin, z_bin);
+            results_matrix->SetBinContent(results_matrix->GetNbinsX(), i_bin, z_bin, tot);
+        }
+        
+    }
+    ///////////
     
     std::vector<TGraphAsymmErrors*> reliability_graph_vec;
     reliability_graph_vec.reserve(10);
@@ -431,6 +502,8 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
     reliability_vec.clear();
     reliability_total_vec.clear();
     
+
+    
     
     //calibration - sanity plots
     
@@ -476,36 +549,14 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
     reliability_graph_vec.clear();
     
     
-    LOG("Brier score: "<<brier_score/m_training_data->size().height, logINFO);
-
-    
-    /////test
-    /////////////////
-    // Get handle on IncidentSvc
-    /*
-    IncidentService * inc_svc = IncidentService::getInstance();
-    if (!inc_svc) {LOG("Coulnd't get IncidentService", logERROR); return; }
-
-    
-    for (int j = 0; j< 5; ++j) {
-    
-        inc_svc->fireIncident(Incident("BeginEvent"));
         
-        PUSHBACK(target, j);
-        
-        inc_svc->fireIncident(Incident("EndEvent"));
-    }
-    */
-   
-
-
+    
 
 
 }
 
 
-
-void MLClassification::train(char & success, const int i, const CvRTParams* RF_params,
+void MLClassification::train(char & success, const int i,std::atomic<int>& console_offset,  const CvRTParams* RF_params,
                       const std::vector< std::vector<int> >& cv_indices,
                       std::unordered_map<unsigned int, std::pair<unsigned char,unsigned char> > & results,
                       std::unordered_map<unsigned int, std::map< unsigned char, float > > & results_prob) {
@@ -522,7 +573,7 @@ void MLClassification::train(char & success, const int i, const CvRTParams* RF_p
                       LOG("Caught unknown Exception in " #str, logWARNING);\
                       success = false;\
                       return;\
-                    }
+                    }     
     
    const cv::Mat& training_data = *m_training_data;
    const cv::Mat& training_classes = *m_training_classes;
@@ -534,7 +585,7 @@ void MLClassification::train(char & success, const int i, const CvRTParams* RF_p
    for ( auto cv : cv_indices.at(i) ) sample_idx.at<unsigned char>(cv) = 0;
    
    // training
-   MyCvRTrees RF;
+   MyCvRTrees RF(cv_indices.size()-i, &console_offset);
    try {
       RF.train(training_data, CV_ROW_SAMPLE, training_classes, cv::Mat(), sample_idx, var_type, cv::Mat(), *RF_params);
    }
@@ -542,7 +593,15 @@ void MLClassification::train(char & success, const int i, const CvRTParams* RF_p
    
    if(true) {
         std::lock_guard<std::mutex> lock(m_log_mtx);
+       
+        //also need to lock mutex from progress bars..
+       
+        std::lock_guard<std::mutex> lock_bar(MyCvRTrees::m_log_mtx);
+       
         LOG("Done training, thread "<<i, logINFO);
+       
+        //increase offset by 1 :
+        console_offset++;
    }
    
    // retrieving results
@@ -566,7 +625,6 @@ void MLClassification::train(char & success, const int i, const CvRTParams* RF_p
         CATCH(RF.predict)
        
         
-        // if the prediction and the (true) testing classification are the same
         // (N.B. openCV uses a floating point decision tree implementation!)
         
         int res_int = (int)(result+0.1);

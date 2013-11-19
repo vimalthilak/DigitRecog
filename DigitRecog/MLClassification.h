@@ -6,6 +6,7 @@
 #include <map>
 #include <utility>      // std::pair
 #include <mutex>
+#include <atomic>
 #include <algorithm>
 
 class IRootNtupleWriterTool;
@@ -69,7 +70,7 @@ protected:
   
   std::mutex m_log_mtx;
   
-  void train(char&, const int , const CvRTParams* ,
+  void train(char&, const int , std::atomic<int>&, const CvRTParams* ,
            const std::vector< std::vector<int> >&, std::unordered_map<unsigned int, std::pair<unsigned char,unsigned char> > &,
            std::unordered_map<unsigned int, std::map< unsigned char, float > > &);
   

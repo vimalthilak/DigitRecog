@@ -9,6 +9,8 @@ https://raw.github.com/Itseez/opencv/2.4.6.1/modules/ml/src/rtrees.cpp
 //#include "opencv/ml.h"
 
 #include <stdexcept>
+#include <mutex>
+#include <iomanip>
 
 class MyCvForestTree;
 
@@ -16,19 +18,63 @@ class MyCvRTrees : public CvRTrees
 {
 
   public:
+    
+     //default constructor
+     MyCvRTrees() : CvRTrees(), i_thread(-1), console_offset_ptr(0) {};
+    
+     //thread aware
+     MyCvRTrees(int i, const std::atomic<int>* off) : CvRTrees(), i_thread(i), console_offset_ptr(off) {};
+  
+  
      bool predict_prob_multiclass( const cv::Mat & , const cv::Mat &, std::vector< std::pair<float, float> >&) const;
     
      float get_class_value(int idx) const { return m_class_idx_map.at(idx); };
     
      friend class MyCvForestTree;
+    
+     friend class MLClassification;
 
   protected:
+  
+     static std::mutex m_log_mtx;
+    
+     void log_progress(int, int, int w = 50);
+  
+     int i_thread;
+     const std::atomic<int>* console_offset_ptr;
+  
      virtual bool grow_forest( const CvTermCriteria term_crit ); //overload
     
      std::vector<float> m_class_idx_map;
 
 };
 
+std::mutex MyCvRTrees::m_log_mtx;
+
+void MyCvRTrees::log_progress(int x, int n, int w) {
+
+  //sanity
+  if (i_thread < 0 || !console_offset_ptr ) return;
+  
+  //increments of 1/100 only
+  if ( ( x!=n) && (x % (n/100) != 0) ) return;
+
+  float ratio = x/(float)n;
+  int c = ratio * w;
+  
+  //lock mutex
+  std::lock_guard<std::mutex> lock(m_log_mtx);
+  
+ 
+  std::cerr<<"\033["<<i_thread+ *console_offset_ptr<<"A\r";
+  std::cerr<<std::setw(3)<<(int)(ratio*100)<<"% [";
+  for (int j = 0; j < c-1; ++j) std::cerr<<"=";
+  if (c < w && c>0) std::cerr<<">"; else if (c > 0) std::cerr<<"=";
+  for (int j = c; j < w; ++j) std::cerr<<" ";
+  std::cerr<<"]\033["<<i_thread+ *console_offset_ptr<<"B\r";
+  
+
+}
 
 class MyCvForestTree: public CvForestTree
 {
@@ -219,6 +265,7 @@ bool MyCvRTrees::predict_prob_multiclass( const cv::Mat & sample , const cv::Mat
 
 bool MyCvRTrees::grow_forest( const CvTermCriteria term_crit )
 {
+
     CvMat* sample_idx_mask_for_tree = 0;
     CvMat* sample_idx_for_tree      = 0;
 
@@ -289,6 +336,10 @@ bool MyCvRTrees::grow_forest( const CvTermCriteria term_crit )
     ntrees = 0;
     while( ntrees < max_ntrees )
     {
+    
+        log_progress(ntrees, max_ntrees);
+        
+        
         int i, oob_samples_count = 0;
         double ncorrect_responses = 0; // used for estimation of variable importance
         CvForestTree* tree = 0;
@@ -420,6 +471,9 @@ bool MyCvRTrees::grow_forest( const CvTermCriteria term_crit )
         if( term_crit.type != CV_TERMCRIT_ITER && oob_error < max_oob_err )
             break;
     }
+    
+    //done
+    log_progress(max_ntrees, max_ntrees);
 
     if( var_importance )
     {
