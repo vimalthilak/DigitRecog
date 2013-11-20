@@ -49,7 +49,7 @@ def main():
   inc_svc.fireIncident(Incident("BeginRun"))
   
   try:
-    ml.performCrossValidationTraining(4,25, 5, 20,100)
+    ml.performCrossValidationTraining(4,25, 5, 20) #,100)
   except BaseException as e:
     print "Cauth Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))
@@ -59,7 +59,7 @@ def main():
   #inc_svc.fireIncident(Incident("EndRun"))
 
   try:
-    ml.performTraining(25, 5, 20,100)
+    ml.performTraining(25, 5, 20) #,100)
   except BaseException as e:
     print "Cauth Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))

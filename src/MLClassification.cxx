@@ -472,7 +472,253 @@ void MLClassification::performTesting(const std::string& train_dir) {
         
     }
     ///////////
+    
+    ////////////////
+    // reliability graphs with
+    // one sigma uncertainty
+    ////////////////
+    
+    std::vector<TH1F*> reliability_vec[21]; //nominal + (up+down)*10 digits  = 1+ 2*10 = 21;
+    for (int j = 0; j < 21; ++j) reliability_vec[j].reserve(10);
+    
+    std::vector<TH1F*> reliability_total_vec[21];
+    for (int j = 0; j < 21; ++j) reliability_total_vec[j].reserve(10);
+    
+    for (int i = 0; i < 10; ++i)  {
+        for (int j = 0; j < 21; ++j) {
+            std::ostringstream oss__;
+            oss__<<"_"<<i<<"_"<<j;
+            
+            reliability_vec[j].push_back(new TH1F(("reliability"+oss__.str()).c_str(),("reliability"+oss__.str()).c_str(), 21, -0.025, 1.025) );
+            reliability_vec[j].back()->Sumw2();
+            reliability_vec[j].back()->SetDirectory(0);
+            
+            reliability_total_vec[j].push_back(new TH1F(("reliability_total"+oss__.str()).c_str(),("reliability_total"+oss__.str()).c_str(), 21, -0.025, 1.025) );
+            reliability_total_vec[j].back()->Sumw2();
+            reliability_total_vec[j].back()->SetDirectory(0);
+        }
+        
+    }
+    
+    float brier_score = 0.;
+    //int t_ = 0;
+    for (auto const & res_p : results_prob ) //loop over map of (sample, results)
+    {
+        
+        //unsigned char val_pred;
+        unsigned char val_truth;
+        try {
+            //val_pred =  results.at(res_p.first).second;
+            val_truth = results.at(res_p.first).first;  }
+        catch (const std::out_of_range& oor) { LOG("Out of Range error: " << oor.what(), logERROR); break;}
+        
+        //bool correct = (val_pred == val_truth);
+        for (auto const & res_p_individual : res_p.second)
+            brier_score += ( val_truth == res_p_individual.first ) ? (res_p_individual.second - 1.)*(res_p_individual.second - 1.)
+            : (res_p_individual.second )*(res_p_individual.second );
+        
+        float sigma_one[10];
+        float sum_sigma_2 = 0.;
+        for (int i = 0; i < 10; ++i) {
+            sigma_one[i] = results_prob_unc.at(res_p.first).at(i);
+            sum_sigma_2 += sigma_one[i]*sigma_one[i];
+        }
+        
+        
+        //outer vector is for digits, inner is f_j's
+        std::vector<std::vector< std::pair<float, float> > >updown_variations;
+        updown_variations.resize(10);
+        
+        for (int i = 0; i < 10; ++i) {
 
+            updown_variations.at(i).resize(10);
+            
+            //reliability
+            
+            if ((int)val_truth == i)  {
+                reliability_vec[0][i]->Fill(res_p.second.at(i));
+            } //if val_truth == i
+            
+            reliability_total_vec[0][i]->Fill(res_p.second.at(i));
+            
+            for (int f_j = 0; f_j < 10; ++f_j) { //variation of f_0 ... f_9
+                
+                float delta = sigma_one[f_j]*((f_j == i) - sigma_one[i]*sigma_one[i]/sum_sigma_2);
+                
+                //up
+                updown_variations.at(i).at(f_j).first = res_p.second.at(i) + delta;
+                //down
+                updown_variations.at(i).at(f_j).second = res_p.second.at(i) - delta;
+                
+            } //loop f_j
+            
+        } //loop over i 1 to 10
+        
+        
+        //make sure norm is still one
+        for (int f_j = 0; f_j < 10; ++f_j) {
+            float norm[2] = {0., 0.};
+            bool renorm[2] = {false, false};
+            for (int i = 0; i < 10; ++i) {
+                if (updown_variations.at(i).at(f_j).first > 1.) {renorm[0] = true; updown_variations.at(i).at(f_j).first = 1.;}
+                if (updown_variations.at(i).at(f_j).first < 0.) {renorm[0] = true; updown_variations.at(i).at(f_j).first = 0.;}
+                
+                if (updown_variations.at(i).at(f_j).second > 1.) {renorm[1] = true; updown_variations.at(i).at(f_j).second = 1.; }
+                if (updown_variations.at(i).at(f_j).second < 0.) {renorm[1] = true; updown_variations.at(i).at(f_j).second = 0.; }
+                
+                norm[0] += updown_variations.at(i).at(f_j).first;
+                norm[1] += updown_variations.at(i).at(f_j).second;
+            }
+            
+            if (renorm[0]) {
+                for (int i = 0; i < 10; ++i) updown_variations.at(i).at(f_j).first /= norm[0];
+            }
+            
+            if (renorm[1]) {
+                for (int i = 0; i < 10; ++i) updown_variations.at(i).at(f_j).second /= norm[1];
+            }
+            
+        } //looping over f_j's to make sure normalization is ok.
+        
+        //filling in variation histos
+        for (int i = 0; i < 10; ++i) {
+            
+            for (int f_j = 0; f_j < 10; ++f_j) { //variation of f_0 ... f_9
+                
+                //up
+                reliability_total_vec[1 + f_j*2][i]->Fill(updown_variations.at(i).at(f_j).first);
+                //down
+                reliability_total_vec[2 + f_j*2][i]->Fill(updown_variations.at(i).at(f_j).second);
+                
+                if ((int)val_truth == i)  {
+                    
+                    //up
+                    reliability_vec[1 + f_j*2][i]->Fill(updown_variations.at(i).at(f_j).first);
+                    //down
+                    reliability_vec[2 + f_j*2][i]->Fill(updown_variations.at(i).at(f_j).second);
+                }
+                
+            } //loop over f_j's
+        } //loop over digits
+        
+        
+    } //loop over events
+    
+    LOG("Brier score: "<<brier_score/num_testing, logINFO);
+    
+    std::vector<TGraphAsymmErrors*> reliability_graph_vec;
+    reliability_graph_vec.reserve(10);
+    
+    
+    //combine up/down variations for each digit
+    for (int i = 0; i < 10; ++i) {
+        TGraphAsymmErrors *reliability_graph = new TGraphAsymmErrors();
+        reliability_graph_vec.push_back(reliability_graph);
+        
+        reliability_graph->Divide(reliability_vec[0][i],reliability_total_vec[0][i],"cl=0.683 b(1,1) mode e0");
+        
+        //flush to file
+        std::ostringstream oss_;
+        oss_<<"_"<<i;
+        reliability_graph->Write(("reliability_graph_test"+oss_.str()).c_str());
+        
+        TGraphAsymmErrors *reliability_graph_variation_up = new TGraphAsymmErrors(reliability_graph->GetN());
+        TGraphAsymmErrors *reliability_graph_variation_down = new TGraphAsymmErrors(reliability_graph->GetN());
+        
+        for (int j = 0; j < reliability_graph->GetN(); ++j) {
+            reliability_graph_variation_up->SetPoint(j, reliability_graph->GetX()[j], reliability_graph->GetY()[j]);
+            reliability_graph_variation_down->SetPoint(j, reliability_graph->GetX()[j], reliability_graph->GetY()[j]);
+            reliability_graph_variation_up->SetPointEYhigh(j,0.);
+            reliability_graph_variation_up->SetPointEYlow(j,0.);
+            reliability_graph_variation_down->SetPointEYhigh(j,0.);
+            reliability_graph_variation_down->SetPointEYlow(j,0.);
+        }
+        
+        for (int f_j = 0; f_j < 10; ++f_j) { //variation of f_0 ... f_9
+            
+            std::ostringstream oss__;
+            oss__<<"_"<<i<<"_"<<f_j;
+            
+            for (int var = 1; var <= 2; ++var) { //1 is up, 2 is down
+                
+                TGraphAsymmErrors * thegraph_var = (var == 1) ? reliability_graph_variation_up : reliability_graph_variation_down;
+                
+                //up
+                TGraphAsymmErrors *reliability_graph_variation = new TGraphAsymmErrors();
+                reliability_graph_variation->Divide(reliability_vec[var + f_j*2][i],reliability_total_vec[var + f_j*2][i],"cl=0.683 b(1,1) mode e0");
+                for (int j = 0; j < reliability_graph_variation->GetN(); ++j) {
+                    
+                    //sanity
+                    if (std::fabs(reliability_graph->GetX()[j] - reliability_graph_variation->GetX()[j]) > 0.0001 ) {
+                        LOG(reliability_graph_variation->GetN()<<" bins vs "<<  reliability_graph->GetN()<<"bins. x differ... "<<j<<" ("<<i<<", "<<f_j<<")  "<<
+                            reliability_graph->GetX()[j]<<" vs "<<reliability_graph_variation->GetX()[j], logWARNING);
+                    }
+                    
+                    float nominal = reliability_graph->GetY()[j];
+                    float var = reliability_graph_variation->GetY()[j];
+                    float delta_2 = (nominal-var)*(nominal-var);
+                    
+                    if ( var >= nominal) { //high
+                        float current_error = thegraph_var->GetErrorYhigh(j);
+                        thegraph_var->SetPointEYhigh(j, std::sqrt(current_error*current_error + delta_2) );
+                    } else { //low
+                        float current_error = thegraph_var->GetErrorYlow(j);
+                        thegraph_var->SetPointEYlow(j, std::sqrt(current_error*current_error + delta_2) );
+                    }
+                    
+                } //loop over graph points
+                
+                delete reliability_graph_variation;
+            }
+            
+        } //loop over f_j's
+        
+        
+        //flush up/down variations to file
+        reliability_graph_variation_up->Write(("reliability_graph_test_up"+oss_.str()).c_str());
+        reliability_graph_variation_down->Write(("reliability_graph_test_down"+oss_.str()).c_str());
+        
+        delete reliability_graph_variation_up;
+        delete reliability_graph_variation_down;
+        
+        float brier_reliability_score = 0.;
+        for (int i_bin = 1; i_bin <= reliability_total_vec[0][i]->GetNbinsX(); ++ i_bin) {
+            
+            float o_k = (reliability_total_vec[0][i]->GetBinContent(i_bin)>0) ?
+            reliability_vec[0][i]->GetBinContent(i_bin)/reliability_total_vec[0][i]->GetBinContent(i_bin)
+            : 0.;
+            float f_k = reliability_vec[0][i]->GetBinCenter(i_bin);
+            brier_reliability_score += reliability_total_vec[0][i]->GetBinContent(i_bin) * (f_k-o_k) *(f_k-o_k);
+            
+        }
+        
+        LOG("Brier reliability score for "<<i<<": "<<brier_reliability_score/num_testing, logINFO);
+        
+        //clean up
+        //delete reliability_graph;
+        //delete f1;
+        
+        
+        for (int j = 0; j < 21; ++j) {
+            delete reliability_vec[j][i];
+            delete reliability_total_vec[j][i];
+        }
+        
+    } //loop over digits
+    
+    for (int j = 0; j < 21; ++j) {
+        reliability_vec[j].clear();
+        reliability_total_vec[j].clear();
+    }
+    
+    
+    //clean up
+    for (auto & g : reliability_graph_vec)
+        delete g;
+    
+    reliability_graph_vec.clear();
+    
+    
 }
 
 

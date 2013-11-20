@@ -297,38 +297,39 @@ int FeX::execute(int target, std::vector<float>& img) {
     
     for (int i =0; i < 4; ++i) {
         
-        if ( r_min[i].size() < 1 ) continue;
+        //if one of the quadrant is empty..
+        bool isempty = r_min[i].empty();
         
         std::sort( r_min[i].begin(), r_min[i].end() );
         std::sort( r_max[i].begin(), r_max[i].end() );
         std::sort( ang_wrtmin[i].begin(), ang_wrtmin[i].end() );
         
         //min
-        r_min_stats[i][0] = r_min[i].front();
-        r_max_stats[i][0] = r_max[i].front();
-        ang_wrtmin_stats[i][0] = ang_wrtmin[i].front();
+        r_min_stats[i][0] = (isempty) ? 0. : r_min[i].front();
+        r_max_stats[i][0] = (isempty) ? 0. : r_max[i].front();
+        ang_wrtmin_stats[i][0] = (isempty) ? 0. : ang_wrtmin[i].front();
         
         
         //first quartile
-        r_min_stats[i][1] = CalcMedian<FLOAT>(r_min[i].begin(), r_min[i].begin() + r_min[i].size()/2 );
-        r_max_stats[i][1] = CalcMedian<FLOAT>(r_max[i].begin(), r_max[i].begin() + r_max[i].size()/2 );
-        ang_wrtmin_stats[i][1] = CalcMedian<FLOAT>(ang_wrtmin[i].begin(), ang_wrtmin[i].begin() + ang_wrtmin[i].size()/2 );
+        r_min_stats[i][1] = (isempty) ? 0. : CalcMedian<FLOAT>(r_min[i].begin(), r_min[i].begin() + r_min[i].size()/2 );
+        r_max_stats[i][1] = (isempty) ? 0. : CalcMedian<FLOAT>(r_max[i].begin(), r_max[i].begin() + r_max[i].size()/2 );
+        ang_wrtmin_stats[i][1] = (isempty) ? 0. : CalcMedian<FLOAT>(ang_wrtmin[i].begin(), ang_wrtmin[i].begin() + ang_wrtmin[i].size()/2 );
         
         //median
-        r_min_stats[i][2] = CalcMedian<FLOAT>(r_min[i].begin(), r_min[i].end());
-        r_max_stats[i][2] = CalcMedian<FLOAT>(r_max[i].begin(), r_max[i].end());
-        ang_wrtmin_stats[i][2] = CalcMedian<FLOAT>(ang_wrtmin[i].begin(), ang_wrtmin[i].end());
+        r_min_stats[i][2] = (isempty) ? 0. : CalcMedian<FLOAT>(r_min[i].begin(), r_min[i].end());
+        r_max_stats[i][2] = (isempty) ? 0. : CalcMedian<FLOAT>(r_max[i].begin(), r_max[i].end());
+        ang_wrtmin_stats[i][2] = (isempty) ? 0. : CalcMedian<FLOAT>(ang_wrtmin[i].begin(), ang_wrtmin[i].end());
         
         
         //third quartile
-        r_min_stats[i][3] = CalcMedian<FLOAT>(r_min[i].end() - r_min[i].size()/2, r_min[i].end() );
-        r_max_stats[i][3] = CalcMedian<FLOAT>(r_max[i].end() - r_max[i].size()/2, r_max[i].end() );
-        ang_wrtmin_stats[i][3] = CalcMedian<FLOAT>(ang_wrtmin[i].end() - ang_wrtmin[i].size()/2, ang_wrtmin[i].end() );
+        r_min_stats[i][3] = (isempty) ? 0. : CalcMedian<FLOAT>(r_min[i].end() - r_min[i].size()/2, r_min[i].end() );
+        r_max_stats[i][3] = (isempty) ? 0. : CalcMedian<FLOAT>(r_max[i].end() - r_max[i].size()/2, r_max[i].end() );
+        ang_wrtmin_stats[i][3] = (isempty) ? 0. : CalcMedian<FLOAT>(ang_wrtmin[i].end() - ang_wrtmin[i].size()/2, ang_wrtmin[i].end() );
         
         //max
-        r_min_stats[i][4] = r_min[i].back();
-        r_max_stats[i][4] = r_max[i].back();
-        ang_wrtmin_stats[i][4] = ang_wrtmin[i].back();
+        r_min_stats[i][4] = (isempty) ? 0. : r_min[i].back();
+        r_max_stats[i][4] = (isempty) ? 0. : r_max[i].back();
+        ang_wrtmin_stats[i][4] = (isempty) ? 0. : ang_wrtmin[i].back();
         
         //////////// five number summary ///////////////
         std::string _prefix[5];
