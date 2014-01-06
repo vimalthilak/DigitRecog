@@ -31,6 +31,15 @@ A makefile is provided for unix-like operating systems (tested on Mac OS X 10.7.
 
 The input dataset can be obtained from the [kaggle][] website. It consists in 42000 28-by-28 pixels gray-scale images of handwritten digits. Eventhough the modules and algorithms are implemented in C++, all the steering is done from Python (thanks to swig's automatic interface generation). 
 
+### Feature Extraction
+
+Ideally, one would use the 784 pixel (integer) values of each image as features, leaving to the classifier the task to learn correlations among those in order to be able to yield predictions. A maximal amount of information can then be exploited. An obvious drawback is a lengthy training process. In order to speed up the training of the classifier, a set of 70 potentially discriminating features are systematically computed from each image. 
+
+As a first step, the image is preprocessed:
+
+* A [Gaussian blur][gblur] is applied to smooth out the image (see ``GaussianBlurTool``).   
+* A [Canny edge detection][canny] algorithm (see ``CannyEdgeTool``) is used to convert the original image to a binary image consisting of only the edges.
+
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
 [boost]: http://www.boost.org/
@@ -39,3 +48,5 @@ The input dataset can be obtained from the [kaggle][] website. It consists in 42
 [swig]: http://swig.org
 [OpenCV]: http://opencv.org/
 [kaggle]: http://www.kaggle.com/c/digit-recognizer/data
+[gblur]: http://en.wikipedia.org/wiki/Gaussian_blur
+[canny]: http://en.wikipedia.org/wiki/Canny_edge_detector
