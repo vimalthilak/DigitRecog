@@ -37,8 +37,8 @@ Ideally, one would use the 784 pixel (integer) values of each image as features,
 
 As a first step, the image is preprocessed:
 
-* A [Gaussian blur][gblur] is applied to smooth out the image (see ``GaussianBlurTool``).   
-* A [Canny edge detection][canny] algorithm (see ``CannyEdgeTool``) is used to convert the original image to a binary image consisting of only the edges.
+* A [Gaussian blur][gblur] is applied to smooth out the image (see ``src/GaussianBlurTool.cxx``).   
+* A [Canny edge detection][canny] algorithm (see ``src/CannyEdgeTool.cxx``) is used to convert the original image to a binary image consisting of only the edges.
 
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
