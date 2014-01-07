@@ -12,6 +12,7 @@ def _run(tool):
   inc_svc = IncidentService.getInstance()
   inc_svc.fireIncident(Incident("BeginRun"))
 
+  # change input file location
   with open("/Users/chaber/test_kaggle/digit/train_unix.csv", "r") as f:
      csv_reader = csv.reader(f)
      for row in csv_reader:
@@ -37,18 +38,19 @@ def _run(tool):
 
 def main():
 
-  print "hello"
-  
-  
+  # Ntuple Writer tools:
+  #  - One for the features per se
+  #  - One containing the names (strings) of the features
   root_svc = RootNtupleWriterTool("RootTool", "tree.root", "ttree")
   root_svc_meta = RootNtupleWriterTool("RootToolMeta", "tree.root", "ttree_meta", 2, True) # only one event
   
+  # Pre-processing tools
   gauss = GaussianBlurTool()
   canny = CannyEdgeTool()
   
-  
-  
+  # Feature Extraction Algorithm
   fex = FeX("myFex", 2, root_svc, root_svc_meta)
+  
   fex.addPreProcessorTool(gauss)
   fex.addPreProcessorTool(canny)
   
@@ -56,9 +58,7 @@ def main():
   
   inc_svc = IncidentService.getInstance()
   inc_svc.kill()
-  print "here"
   
-
 
   return 0
 

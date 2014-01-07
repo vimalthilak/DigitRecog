@@ -208,7 +208,7 @@ void MLClassification::performTesting(const std::string& train_dir) {
     //scale data --> [-1, 1]
     scale(m_testing_data);
     
-    LOG("Now testing..", logDEBUG);
+    LOG("Now testing..", logINFO);
     
     unsigned int num_testing = m_testing_data->size().height;
     
@@ -255,13 +255,13 @@ void MLClassification::performTesting(const std::string& train_dir) {
         
     }
     
-    LOG("..done testing", logDEBUG);
+    LOG("..done testing", logINFO);
     
     //We assume that the current ROOT directory (pointed to by gDirectory) is where the results are saved
     //The calibration functions, however, are saved in another directory : train_dir
 
     //retrieve calib functions
-    LOG("Root path: "<< gDirectory->GetPath(), logINFO);
+    LOG("Root path: "<< gDirectory->GetPath(), logDEBUG);
     
     TDirectory * origDir = gDirectory;
     
@@ -270,7 +270,7 @@ void MLClassification::performTesting(const std::string& train_dir) {
        return;
     }
     
-    LOG("Root path: "<< gDirectory->GetPath(), logINFO);
+    LOG("Root path: "<< gDirectory->GetPath(), logDEBUG);
     
     //calibration ! 
     TF1 const * calib_functions[10] = {0,0,0,0,0,0,0,0,0,0};
@@ -310,13 +310,13 @@ void MLClassification::performTesting(const std::string& train_dir) {
         
         sigma_fit[i] = cl_graph;
         
-        LOG(" for digit "<<i<< " function chosen is : "<<the_func, logINFO);
+        LOG(" for digit "<<i<< " function chosen is : "<<the_func, logDEBUG);
     
     }
 
     origDir->cd();
     
-    LOG("Root path: "<< gDirectory->GetPath(), logINFO);
+    LOG("Root path: "<< gDirectory->GetPath(), logDEBUG);
 
 
     /////////////////////
@@ -501,18 +501,28 @@ void MLClassification::performTesting(const std::string& train_dir) {
     }
     
     float brier_score = 0.;
+    float accuracy = 0.;
+    float accuracy_largestprob = 0.;
     //int t_ = 0;
     for (auto const & res_p : results_prob ) //loop over map of (sample, results)
     {
         
-        //unsigned char val_pred;
+        unsigned char val_pred;
         unsigned char val_truth;
         try {
-            //val_pred =  results.at(res_p.first).second;
+            val_pred =  results.at(res_p.first).second;
             val_truth = results.at(res_p.first).first;  }
         catch (const std::out_of_range& oor) { LOG("Out of Range error: " << oor.what(), logERROR); break;}
         
-        //bool correct = (val_pred == val_truth);
+        bool correct = (val_pred == val_truth);
+        if (correct) accuracy += 1.;
+        
+        const auto & largest_prob = *map_max_element(res_p.second);
+        //alternative:
+        int prediction =  static_cast<int>(largest_prob.first);
+        if (prediction == static_cast<int>(val_truth) ) accuracy_largestprob += 1.;
+        
+        
         for (auto const & res_p_individual : res_p.second)
             brier_score += ( val_truth == res_p_individual.first ) ? (res_p_individual.second - 1.)*(res_p_individual.second - 1.)
             : (res_p_individual.second )*(res_p_individual.second );
@@ -604,6 +614,8 @@ void MLClassification::performTesting(const std::string& train_dir) {
         
     } //loop over events
     
+    LOG("Success rate: "<<100.*(accuracy/num_testing)<<" %", logINFO);
+    LOG("Success rate (largest prob): "<<100.*(accuracy_largestprob/num_testing)<<" %", logINFO);
     LOG("Brier score: "<<brier_score/num_testing, logINFO);
     
     std::vector<TGraphAsymmErrors*> reliability_graph_vec;
@@ -617,10 +629,10 @@ void MLClassification::performTesting(const std::string& train_dir) {
         
         reliability_graph->Divide(reliability_vec[0][i],reliability_total_vec[0][i],"cl=0.683 b(1,1) mode e0");
         
-        //flush to file
+        
         std::ostringstream oss_;
         oss_<<"_"<<i;
-        reliability_graph->Write(("reliability_graph_test"+oss_.str()).c_str());
+        //reliability_graph->Write(("reliability_graph_test"+oss_.str()).c_str());
         
         TGraphAsymmErrors *reliability_graph_variation_up = new TGraphAsymmErrors(reliability_graph->GetN());
         TGraphAsymmErrors *reliability_graph_variation_down = new TGraphAsymmErrors(reliability_graph->GetN());
@@ -674,9 +686,38 @@ void MLClassification::performTesting(const std::string& train_dir) {
         } //loop over f_j's
         
         
+        //combine stat and systematic errors
+        for (int j = 0; j < reliability_graph->GetN(); ++j) {
+        
+            double err_stat_plus = reliability_graph->GetErrorYhigh(j);
+            double err_stat_minus = reliability_graph->GetErrorYlow(j);
+            
+            double err_syst_up_plus = reliability_graph_variation_up->GetErrorYhigh(j);
+            double err_syst_up_minus = reliability_graph_variation_up->GetErrorYlow(j);
+        
+            double err_syst_down_plus = reliability_graph_variation_down->GetErrorYhigh(j);
+            double err_syst_down_minus = reliability_graph_variation_down->GetErrorYlow(j);
+        
+            double tot_err_plus = std::sqrt(err_stat_plus*err_stat_plus +
+                                            err_syst_up_plus*err_syst_up_plus +
+                                            err_syst_down_plus*err_syst_down_plus);
+            
+            double tot_err_minus = std::sqrt(err_stat_minus*err_stat_minus +
+                                            err_syst_up_minus*err_syst_up_minus +
+                                            err_syst_down_minus*err_syst_down_minus);
+
+            reliability_graph->SetPointEYhigh(j,tot_err_plus);
+            reliability_graph->SetPointEYlow(j,tot_err_minus);
+        
+        }
+        
+        
+        //flush to file
+        reliability_graph->Write(("reliability_graph_test"+oss_.str()).c_str());
+        
         //flush up/down variations to file
-        reliability_graph_variation_up->Write(("reliability_graph_test_up"+oss_.str()).c_str());
-        reliability_graph_variation_down->Write(("reliability_graph_test_down"+oss_.str()).c_str());
+        //reliability_graph_variation_up->Write(("reliability_graph_test_up"+oss_.str()).c_str());
+        //reliability_graph_variation_down->Write(("reliability_graph_test_down"+oss_.str()).c_str());
         
         delete reliability_graph_variation_up;
         delete reliability_graph_variation_down;
@@ -899,6 +940,8 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
     }
     
     float brier_score = 0.;
+    float accuracy = 0.;
+    float accuracy_largestscore = 0.;
     for (std::size_t i_cv = 0; i_cv < results_prob.size(); ++i_cv) //loop over cv regions (1..n_regions)
         for (auto const & res_p : results_prob.at(i_cv) ) //loop over map of (sample, results)
         {
@@ -911,6 +954,7 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
             catch (const std::out_of_range& oor) { LOG("Out of Range error: " << oor.what(), logWARNING); break;}
             
             bool correct = (val_pred == val_truth);
+            if (correct) accuracy += 1.;
             
             TH2F * hist = (correct) ? res_correct : res_wrong ;
             hist->Fill( res_p.second.at(val_pred),  static_cast<float>(val_pred) + 0.5 );
@@ -923,6 +967,8 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
             //alternative:
             int prediction =  static_cast<int>(largest_prob.first);
             results_matrix->Fill(static_cast<float>(val_truth)+0.5, static_cast<float>(prediction)+0.5, 1.5);
+            
+            if (prediction ==  static_cast<int>(val_truth) ) accuracy_largestscore += 1.;
             ///////////////
             
             
@@ -957,7 +1003,9 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
             
             
         }
-    
+
+    LOG("Success rate: "<<100.*(accuracy/m_training_data->size().height)<<" %", logINFO);
+    LOG("Success rate (largest score): "<<100.*(accuracy_largestscore/m_training_data->size().height)<<" %", logINFO);
     LOG("Brier score: "<<brier_score/m_training_data->size().height, logINFO);
     
     /////////////
@@ -1054,7 +1102,7 @@ void MLClassification::performCrossValidationTraining(unsigned int n_regions,
         ////
         
         
-        LOG("f1: "<<fit_chi2_ndf_1<<"  f2: "<<fit_chi2_ndf_2<<"  f3: "<<fit_chi2_ndf_3, logINFO);
+        LOG("f1: "<<fit_chi2_ndf_1<<"  f2: "<<fit_chi2_ndf_2<<"  f3: "<<fit_chi2_ndf_3, logDEBUG);
         
         
         //flush to file
