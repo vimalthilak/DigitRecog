@@ -40,6 +40,21 @@ As a first step, the image is preprocessed:
 * A [Gaussian blur][gblur] is applied to smooth out the image (see ``src/GaussianBlurTool.cxx``).   
 * A [Canny edge detection][canny] algorithm (see ``src/CannyEdgeTool.cxx``) is used to convert the original image to a binary image consisting of only the edges.
 
+<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/6_plain.png" alt="6 plain" height="350" width="350"> <img src="https://raw.github.com/chapleau/DigitRecog/master/doc/6_processed.png" alt="6 plain" height="350" width="350">
+
+The two images above represent the same instance of a _6_, before (left) and after (right) the preprocessing steps (the extra lines, markers, colors, are just visual aids). The features are computed from the preprocessed images using the pixel positions and includes (see ``src/FeX.cxx``):
+
+* The center of mass (depicted by the black pixel in the image here)
+* Axis minimizing the second (inertia) moment (blue axis, red axis is orthogonal)
+* Measure of symmetry of the image with respect to the axes defined by the second moments.
+* Five number summary (minimum, first quartile, median, third quartile, maximum) of the pixel positions and angle with respect to the inertia axes, computed in each quadrant (the markers identify the different quadrants).
+
+All the features are saved as a TTree in a ROOT file (see ``simplefwk-utilitytools`` package for more details) for easy and efficient future access. The ``run/run.py`` Python file can be used to run the feature extraction algorithm (from the ``run/`` directory):
+
+````shell
+PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run.py
+````
+
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
 [boost]: http://www.boost.org/
@@ -50,3 +65,4 @@ As a first step, the image is preprocessed:
 [kaggle]: http://www.kaggle.com/c/digit-recognizer/data
 [gblur]: http://en.wikipedia.org/wiki/Gaussian_blur
 [canny]: http://en.wikipedia.org/wiki/Canny_edge_detector
+
