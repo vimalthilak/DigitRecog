@@ -29,7 +29,7 @@ A makefile is provided for unix-like operating systems (tested on Mac OS X 10.7.
 
 ## Usage
 
-The input dataset can be obtained from the [kaggle][] website. It consists in 42000 28-by-28 pixels gray-scale images of handwritten digits. Eventhough the modules and algorithms are implemented in C++, all the steering is done from Python (thanks to swig's automatic interface generation). 
+The input dataset can be obtained from the [kaggle][] website. It consists in 42000 28-by-28 pixels gray-scale images of handwritten digits. Eventhough the modules and algorithms are implemented in C++, most of the steering is done from Python (thanks to swig's automatic interface generation). 
 
 ### Feature Extraction
 
