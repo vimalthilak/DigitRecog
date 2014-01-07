@@ -49,7 +49,7 @@ The two images above represent the same instance of a _6_, before (left) and aft
 * Measure of symmetry of the image with respect to the axes defined by the second moments.
 * Five number summary (minimum, first quartile, median, third quartile, maximum) of the pixel positions and angle with respect to the inertia axes, computed in each quadrant (the markers identify the different quadrants).
 
-All the features are saved as a TTree in a ROOT file (see ``simplefwk-utilitytools`` package for more details) for easy and efficient future access. The ``run/run.py`` Python file can be used to run the feature extraction algorithm (from the ``run/`` directory):
+All the features are saved as a TTree in a ROOT file (see ``simplefwk-utilitytools`` package for more details) for easy and efficient future access. The ``run/run.py`` Python file can be used to run the feature extraction algorithm (from the ``run/`` directory, using the Bash shell):
 
 ````shell
 PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run.py
