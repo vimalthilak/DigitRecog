@@ -33,7 +33,7 @@ The input dataset can be obtained from the [kaggle][] website. It consists in 42
 
 ### Feature Extraction
 
-Ideally, one would use the 784 pixel (integer) values of each image as features, leaving to the classifier the task of learning about correlations and building an optimal model of our data in order to be able to yield predictions. A maximal amount of information can then be exploited. An obvious drawback is a lengthy training process. In order to speed up the training of the classifier, a set of 70 potentially discriminating features are systematically computed from each image. 
+Ideally, one would use the 784 pixel (integer) values of each image as features, leaving to the classifier the task of learning about correlations and building an optimal model of our data in order to yield reliable predictions. A maximal amount of information can then be exploited. An obvious drawback is a lengthy training process. In order to speed up the training of the classifier, a set of 70 potentially discriminating features are systematically computed from each image. 
 
 As a first step, the image is preprocessed:
 
