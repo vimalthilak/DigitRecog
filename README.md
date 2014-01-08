@@ -70,7 +70,7 @@ A _k_-fold cross-validation (with _k_ set to 4 for practical purposes) is perfor
 Each instance of the cross-validation procedure is executed in parallel in a unique thread. The original OpenCV implementation was modified in order to (notably) monitor the progress of the computations:
 <img src="https://raw.github.com/chapleau/DigitRecog/master/doc/cv_terminal.png" alt="cv">
 
-The main purpose of cross-validation is to find out the best classifier parameter values to be used. This can be done by scanning the parameter space for the set of values that allows the classifier to perform at its best. A good set of parameter values were found and used in ``run/run_cl.py``. 
+The main purpose of cross-validation is to find out the best classifier parameter values to be used. This can be done by scanning the parameter space for the set of values that allows the classifier to perform at its best. A good set of parameter values were found that way and are used in ``run/run_cl.py``. 
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
 [boost]: http://www.boost.org/
