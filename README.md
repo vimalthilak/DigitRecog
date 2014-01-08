@@ -63,6 +63,13 @@ The classification of the dataset is done using [random forests][rf] using the [
 PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run_cl.py
 ````
 
+#### Probability estimation trees
+
+In many implementations of the random forests classifier (such as the one present in the OpenCV library), the _forest_ consists in an ensemble of classification trees. Each leaf in such trees is associated with a single class label that is determined by a vote during the training phase. Modifications were made to the OpenCV impementation (see ``src/rtrees.hpp``) in order to operate on an ensemble of probability estimation trees. In this case, the relative class frequency in a leaf that is obtained during the training phase is used as an estimation of the class membership probability. The estimated class probablity for the forest is taken as the average, over the whole ensemble, of the single tree relative class frequency (see [this paper][bostrom07]).
+
+Those probability estimates will be denoted as _scores_. If two events are classified as members of a class _c_, the one with the highest score is more likely to be a true member of class _c_. In order to be able to interpret those scores as the chance of membership of a class, calibration is necessary. The calibration maps scores to empirical class membership probabilities. Accurate class probability estimates are necessary when combining the output of the classifier with other independent sources of information or with different classifiers. (see [this paper][kdd2002]) 
+
+
 #### Cross-validation
 
 A _k_-fold cross-validation (with _k_ set to 4 for practical purposes) is performed on half of the dataset. It consists in randomly partitioning the sample into _k_ subsamples of roughly equal size, leaving out one for validation/testing purposes and using the remaining subsamples as training data. The procedure is repeated _k_ times, each time using a different subsample for testing, and the results are combined. Each event can then be tested using a classifier trained on an independent set of events. 
@@ -82,4 +89,5 @@ The main purpose of cross-validation is to find out the best classifier paramete
 [gblur]: http://en.wikipedia.org/wiki/Gaussian_blur
 [canny]: http://en.wikipedia.org/wiki/Canny_edge_detector
 [rf]: http://www.stat.berkeley.edu/users/breiman/RandomForests/cc_home.htm
-
+[bostrom07]: http://people.dsv.su.se/~henke/papers/bostrom07c.pdf
+[kdd2002]: http://www.research.ibm.com/people/z/zadrozny/kdd2002-Transf.pdf
