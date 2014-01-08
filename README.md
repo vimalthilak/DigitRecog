@@ -55,6 +55,22 @@ All the features are saved as a TTree in a ROOT file (see ``simplefwk-utilitytoo
 PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run.py
 ````
 
+### Classification by Random Forests
+
+The classification of the dataset is done using [random forests][rf] using the [OpenCV][] machine learning library. It involves three distinct steps: the cross-validation, training, and testing phases. The whole process can be run using the provided Python steering file (from the ``run/`` directory, using the Bash shell):
+
+````shell
+PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run_cl.py
+````
+
+#### Cross-validation
+
+A _k_-fold cross-validation (with _k_ set to 4 for practical purposes) is performed on half of the dataset. It consists in randomly partitioning the sample into _k_ subsamples of roughly equal size, leaving out one for validation/testing purposes and using the remaining subsamples as training data. The procedure is repeated _k_ times, each time using a different subsample for testing, and the results are combined. Each event can then be tested using a classifier trained on an independent set of events. 
+
+Each instance of the cross-validation procedure is executed in parallel in a unique thread. The original OpenCV implementation was modified in order to (notably) monitor the progress of the computations:
+<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/cv_terminal.png" alt="cv">
+
+The main purpose of cross-validation is to find out the best classifier parameter values to be used. This can be done by scanning the parameter space for the set of values that allows the classifier to perform at its best. A good set of parameter values were found and used in ``run/run_cl.py``. 
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
 [boost]: http://www.boost.org/
@@ -65,4 +81,5 @@ PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run.py
 [kaggle]: http://www.kaggle.com/c/digit-recognizer/data
 [gblur]: http://en.wikipedia.org/wiki/Gaussian_blur
 [canny]: http://en.wikipedia.org/wiki/Canny_edge_detector
+[rf]: http://www.stat.berkeley.edu/users/breiman/RandomForests/cc_home.htm
 
