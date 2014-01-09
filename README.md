@@ -67,10 +67,12 @@ PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run_cl.py
 
 In many implementations of the random forests classifier (such as the one present in the OpenCV library), the _forest_ consists in an ensemble of classification trees. Each leaf in such trees is associated with a single class label that is determined by a vote during the training phase. Modifications were made to the OpenCV impementation (see ``src/rtrees.hpp``) in order to operate on an ensemble of probability estimation trees. In this case, the relative class frequency in a leaf that is obtained during the training phase is used as an estimation of the class membership probability. The estimated class probablity for the forest is taken as the average, over the whole ensemble, of the single tree relative class frequency (see [this paper][bostrom07]).
 
-Those probability estimates will be denoted as _scores_. If two events are classified as members of a class _c_, the one with the highest score is more likely to be a true member of class _c_. In order to be able to interpret those scores as the chance of membership of a class, calibration is necessary. The calibration maps scores to empirical class membership probabilities. Accurate class probability estimates are necessary when combining the output of the classifier with other independent sources of information or with different classifiers. (see [this paper][kdd2002]) 
+Those probability estimates will be denoted as _scores_. If two events are classified as members of a class _c_, the one with the highest score is more likely to be a true member of class _c_. In order to be able to interpret those scores as the chance of membership of a class, calibration is necessary. The calibration maps scores to empirical class membership probabilities. Accurate class probability estimates are necessary when combining the output of the classifier with other independent sources of information or with different classifiers. (see [this paper][kdd2002]). 
+
+The calibration is discussed in more details in the cross-validation section.
 
 
-#### Cross-validation
+#### Cross-validation & training
 
 A _k_-fold cross-validation (with _k_ set to 4 for practical purposes) is performed on half of the dataset. It consists in randomly partitioning the sample into _k_ subsamples of roughly equal size, leaving out one for validation/testing purposes and using the remaining subsamples as training data. The procedure is repeated _k_ times, each time using a different subsample for testing, and the results are combined. Each event can then be tested using a classifier trained on an independent set of events. 
 
@@ -78,6 +80,9 @@ Each instance of the cross-validation procedure is executed in parallel in a uni
 <img src="https://raw.github.com/chapleau/DigitRecog/master/doc/cv_terminal.png" alt="cv">
 
 The main purpose of cross-validation is to find out the best classifier parameter values to be used. This can be done by scanning the parameter space for the set of values that allows the classifier to perform at its best. A good set of parameter values were found that way and are used in ``run/run_cl.py``. 
+
+The calibration functions (i.e. mapping from scores to probabilities estimates) is determined during cross-validation. Ideally, when dealing with a multiclass classifier, a non-trivial multidimensional mapping function would need to be determined. Here, for simplicity, a calibration is determined for each class individually. The calibrated probability estimates are then normalized so that the sum to 1.
+
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
 [boost]: http://www.boost.org/
