@@ -61,9 +61,6 @@ def main():
   
   print "Success rate: ", 100.*(accuracy/ientry), " %"
   print "Success rate (two highest): ", 100.*(accuracy_twohighest/ientry), " %"
-  #print "Success rate (thresholds): "
-  #for  i in range(0,10):
-  #     print "  ",i," ", 100.*(accuracy_threshold[i]/ientry_threshold[i]), " %"," with ", 100.*(ientry_threshold[i]/ientry), " % acceptance"
   
 
   # ROOT imports
