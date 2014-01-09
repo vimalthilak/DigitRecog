@@ -81,7 +81,7 @@ Each instance of the cross-validation procedure is executed in parallel in a uni
 
 The main purpose of cross-validation is to find out the best classifier parameter values to be used. This can be done by scanning the parameter space for the set of values that allows the classifier to perform at its best. A good set of parameter values were found that way and are used in ``run/run_cl.py``. 
 
-The calibration functions (i.e. mappings from scores to probability estimates) is determined during cross-validation. Ideally, when dealing with a multiclass classifier, a non-trivial multidimensional mapping function would need to be determined. Here, for simplicity, a calibration is determined for each class individually. The calibrated probability estimates are then normalized so that the sum to 1.
+The calibration functions (i.e. mappings from scores to probability estimates) is determined during cross-validation. Ideally, when dealing with a multiclass classifier, a non-trivial multidimensional mapping function would need to be determined. Here, for simplicity, a calibration is determined for each class individually. The calibrated probability estimates are then normalized so that they sum to 1.
 
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
