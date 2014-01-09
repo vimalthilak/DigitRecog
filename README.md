@@ -90,11 +90,12 @@ The single-class calibration functions are saved for the testing phase where the
 
 #### Testing
 
-The classifier is tested on an independent set of events (the other half of the dataset). When classifying an event, raw scores are obtained directly from the random forest for each class (i.e. digit). The scores are then calibrated using the mappings derived during the cross-validation procedure. In order to be able to interpret those as probabilities, they need to sum to unity. Instead of applying a constant normalization factor, the mapping functions are allowed to simultaneously _float_ in such a way that the proper normalization is achieved. Each calibration function is thus allowed to shift from its nominal position by a multiple of the one sigma uncertainty (estimated by a 68% confidence interval, beware of its tricky interpretation!) on the fit results, at a given score value. The smallest possible shifts that give rise to the desired normalization are chosen by minimizing a Gaussian cost function. The largest shifts will therefore be applied to  mappings with large (fit) uncertainties.
+The classifier is tested on an independent set of events (the other half of the dataset). When classifying an event, raw scores are obtained directly from the random forest for each class (i.e. digit). The scores are then calibrated using the mappings derived during the cross-validation procedure. In order to be able to interpret those as probabilities, they need to sum to unity. Instead of applying a constant normalization factor, the mapping functions are allowed to simultaneously _float_ in such a way that the proper normalization is achieved. Each calibration function is thus allowed to shift from its nominal position by a multiple of the one-sigma uncertainty (estimated by a 68% confidence interval, beware of its tricky interpretation!) on the fit results, at a given score value. The smallest possible shifts that give rise to the desired normalization are chosen by minimizing a Gaussian cost function. The largest shifts will therefore be applied to  mappings with large (fit) uncertainties.
 
-To test the calibration, reliability graph are produced (here for digit _8_):
-<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_test_8.png" alt="cv" height="350" width="465">
-
+To test the calibration, reliability graph are produced (here for digit _8_ on the left, and digit _6_ on the right):
+<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_test_8.png" alt="cv" height="320" width="425"><img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_test_6.png" alt="cv" height="320" width="425">
+ 
+The error bars represent the statistical uncertainty added in quadrature with the propagated fit uncertainties. As it can be seen from the two graphs above, the calibration seems to work very well for some classes but less for others. This might be an indication that our simplistic approach to this multi-dimensional problem is not quite optimal.
  
 [MNIST]: http://yann.lecun.com/exdb/mnist/
 [boost]: http://www.boost.org/
