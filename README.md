@@ -85,7 +85,7 @@ The calibration functions (i.e. mappings from scores to probability estimates) i
 
 <img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_8.png" alt="cv">
 
-
+ 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
 [boost]: http://www.boost.org/
 [macports]: http://www.macports.org/
