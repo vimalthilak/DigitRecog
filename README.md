@@ -65,7 +65,7 @@ PYTHONPATH=$PYTHONPATH:`pwd`/../../ python ./run_cl.py
 
 #### Probability estimation trees
 
-In many implementations of the random forests classifier (such as the one present in the OpenCV library), the _forest_ consists in an ensemble of classification trees. Each leaf in such trees is associated with a single class label that is determined by a vote during the training phase. Modifications were made to the OpenCV impementation (see ``src/rtrees.hpp``) in order to operate on an ensemble of probability estimation trees. In this case, the relative class frequency in a leaf that is obtained during the training phase is used as an estimation of the class membership probability. The estimated class probablity for the forest is taken as the average, over the whole ensemble, of the single tree relative class frequency (see [this paper][bostrom07]).
+In many implementations of the random forests classifier (such as the one present in the OpenCV library), the _forest_ consists in an ensemble of classification trees. Each leaf in such trees is associated with a single class label that is determined by a vote during the training phase. Modifications were made to the OpenCV impementation (see ``src/rtrees.hpp``) in order to operate on an ensemble of probability estimation trees instead. In this case, the relative class frequency in a leaf that is obtained during the training phase is used as an estimation of the class membership probability. The estimated class probablity for the forest is taken as the average, over the whole ensemble, of the single tree relative class frequency (see [this paper][bostrom07]).
 
 Those probability estimates will be denoted as _scores_. If two events are classified as members of a class _c_, the one with the highest score is more likely to be a true member of class _c_. In order to be able to interpret those scores as the chance of membership of a class, calibration is necessary. The calibration maps scores to empirical class membership probabilities. Accurate class probability estimates are necessary when combining the output of the classifier with other independent sources of information or with different classifiers. (see [this paper][kdd2002]). 
 
@@ -81,7 +81,9 @@ Each instance of the cross-validation procedure is executed in parallel in a uni
 
 The main purpose of cross-validation is to find out the best classifier parameter values to be used. This can be done by scanning the parameter space for the set of values that allows the classifier to perform at its best. A good set of parameter values were found that way and are used in ``run/run_cl.py``. 
 
-The calibration functions (i.e. mappings from scores to probability estimates) is determined during cross-validation. Ideally, when dealing with a multiclass classifier, a non-trivial multidimensional mapping function would need to be determined. Here, for simplicity, a calibration is computed for each class individually. The calibrated probability estimates are then normalized so that they sum to 1.
+The calibration functions (i.e. mappings from scores to probability estimates) is determined during cross-validation. Ideally, when dealing with a multiclass classifier, a non-trivial multidimensional mapping function would need to be determined. Here, for simplicity, a calibration is computed for each class individually. The calibrated probability estimates are then normalized so that they sum to 1. Binned reliability graphs are used to compute single-class calibration mappings :
+
+<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_8.png" alt="cv">
 
 
 [MNIST]: http://yann.lecun.com/exdb/mnist/
