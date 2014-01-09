@@ -82,8 +82,18 @@ Each instance of the cross-validation procedure is executed in parallel in a uni
 The main purpose of cross-validation is to find out the best classifier parameter values to be used. This can be done by scanning the parameter space for the set of values that allows the classifier to perform at its best. A good set of parameter values were found that way and are used in ``run/run_cl.py``. 
 
 The calibration functions (i.e. mappings from scores to probability estimates) is determined during cross-validation. Ideally, when dealing with a multiclass classifier, a non-trivial multidimensional mapping function would need to be determined. Here, for simplicity, a calibration is computed for each class individually. The calibrated probability estimates are then normalized so that they sum to 1. Binned reliability graphs are used to compute single-class calibration mappings :
+<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_8.png" alt="cv" height="350" width="465">
 
-<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_8.png" alt="cv">
+Here, the markers represent the fraction of predictions (for the digit _8_ in this case) with a given raw score which are correct. The overlayed colored curves are fitted sigmoid functions. The best fitted curve (i.e. the one with the lowest Chi2/NDF) is taking as the calibration function. It is to be noted that the bin size is kept constant for all classes (digits). This choice is technically not optimal because statistical fluctuations can be important for some classes (that is when the scores are not distributed very evenly) which can affect the empirical class probability estimates.
+
+The single-class calibration functions are saved for the testing phase where they will be used to calibrate raw scores. As a last step, the classifier is trained again using the full training data (i.e. half the dataset).
+
+#### Testing
+
+The classifier is tested on an independent set of events (the other half of the dataset). When classifying an event, raw scores are obtained directly from the random forest for each class (i.e. digit). The scores are then calibrated using the mappings derived during the cross-validation procedure. In order to be able to interpret those as probabilities, they need to sum to unity. Instead of applying a constant normalization factor, the mapping functions are allowed to simultaneously _float_ in such a way that the proper normalization is achieved. Each calibration function is thus allowed to shift from its nominal position by a multiple of the one sigma uncertainty (estimated by a 68% confidence interval, beware of its tricky interpretation!) on the fit results, at a given score value. The smallest possible shifts that give rise to the desired normalization are chosen by minimizing a Gaussian cost function. The largest shifts will therefore be applied to  mappings with large (fit) uncertainties.
+
+To test the calibration, reliability graph are produced (here for digit _8_):
+<img src="https://raw.github.com/chapleau/DigitRecog/master/doc/reliability_graph_test_8.png" alt="cv" height="350" width="465">
 
  
 [MNIST]: http://yann.lecun.com/exdb/mnist/
