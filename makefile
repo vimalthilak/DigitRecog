@@ -17,10 +17,10 @@ $(LIBDIR):
 	mkdir $(LIBDIR) 
 
 python/_DigitRecog.so: lib/libDigitRecog.so python/DigitRecog_wrap.o
-	$(CC) $(LDFLAGS) python/DigitRecog_wrap.o -lpython2.7 -Llib/ -lDigitRecog -Xlinker -rpath -Xlinker `dirname \`pwd\`` -o python/_DigitRecog.so
+	$(CC) $(LDFLAGS) python/DigitRecog_wrap.o -L/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/config -ldl -lpython2.7 -Llib/ -lDigitRecog -Xlinker -rpath -Xlinker `dirname \`pwd\`` -o python/_DigitRecog.so
 
 python/DigitRecog_wrap.o: python/DigitRecog_wrap.cxx
-	$(CC) $(CFLAGS) python/DigitRecog_wrap.cxx -I../Services -I/usr/include/python2.7/ -o python/DigitRecog_wrap.o
+	$(CC) $(CFLAGS) python/DigitRecog_wrap.cxx -I../Services `python2.7-config --cflags` -o python/DigitRecog_wrap.o
 
 python/DigitRecog_wrap.cxx:
 	swig -Wall -c++ -python python/DigitRecog.i
