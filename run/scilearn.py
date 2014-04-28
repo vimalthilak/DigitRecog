@@ -38,10 +38,6 @@ class ClassificationTool(PyMessaging, PyIIncidentListener):
     
     #register handle
     inc_svc = IncidentService.getInstance()
-    print type(self.this)
-    print self.this
-    print issubclass(ClassificationTool, PyMessaging)
-    print issubclass(ClassificationTool, PyIIncidentListener)
     inc_svc.addListener(self, "BeginRun");
 
   @accepts(1,int,int)

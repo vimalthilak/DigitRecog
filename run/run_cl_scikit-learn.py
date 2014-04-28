@@ -2,6 +2,8 @@ import sys
 from Services.python.IncidentService import IncidentService, Incident
 from Services.python.Messaging import PyMessaging, logDEBUG, logINFO, logWARNING, logERROR
 from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value
+from UtilityToolsInterfaces.python.ObjectHolder import VectorObjectHolder_Float
+
 
 from exceptions import BaseException
 
@@ -62,7 +64,16 @@ def main():
 
   inc_svc = IncidentService.getInstance()
 
+
+  root_svc = RootNtupleWriterTool("RootTool", "tree_results_.root", "train/ttree", logDEBUG)
+
   inc_svc.fireIncident(Incident("BeginRun"))
+
+  v = VectorObjectHolder_Float()
+  v.thisown = 0
+  root_svc.registerBranch("test", v)
+  
+  inc_svc.fireIncident(Incident("EndRun"))
 
   inc_svc.kill()
   

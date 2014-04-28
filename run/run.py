@@ -53,7 +53,7 @@ def main():
   
   fex.addPreProcessorTool(gauss)
   fex.addPreProcessorTool(canny)
-  
+   
   _run(fex)
   
   inc_svc = IncidentService.getInstance()
