@@ -1,6 +1,9 @@
 import numpy as np
-from Services.python.Messaging import PyMessaging, logINFO, logWARNING
+from Services.python.Messaging import PyMessaging, logINFO, logWARNING, logDEBUG, logERROR
 from Services.python.IncidentService import PyIIncidentListener, Incident, IncidentService
+from UtilityTools.python.RootNtupleTools import IRootNtupleWriterTool
+
+from exceptions import BaseException, Exception
 
 def accepts(offset, *types):
     def check_accepts(f):
@@ -30,9 +33,9 @@ def count_calls(fn):
 
 class ClassificationTool(PyMessaging, PyIIncidentListener):
 
-  def __init__(self, n, arg1, arg2):
+  def __init__(self, n, arg1, arg2, lvl = logINFO):
     #super(ClassificationTool, self).__init__(n)
-    PyMessaging.__init__(self, n)
+    PyMessaging.__init__(self, n, lvl)
     PyIIncidentListener.__init__(self)
     self._initData(arg1, arg2)
     
@@ -81,9 +84,23 @@ class ClassificationTool(PyMessaging, PyIIncidentListener):
     else:
       raise Exception("Trying to accumulate too much data!")
 
+  @accepts(1, IRootNtupleWriterTool)
+  def setRootNtupleHelper(self, helper):
+     self.ntuple_helper = helper
+
+  def Initialize(self):
+    raise Exception("test")
+    pass
+    
 
   def handle(self,incident):
-     print incident.svcType()
+     self.PyLOG("Handling incident ==" + incident.svcType() + "==", logDEBUG)
+     if  incident.svcType() == "BeginRun" :
+       try:
+         self.Initialize()
+       except BaseException as e:
+         self.PyLOG("Couldn't initialize properly.. " + str(e), logERROR, True)
+
  
   #@property
   def train_features(self):

@@ -10,6 +10,7 @@ from exceptions import BaseException
 from scilearn import ClassificationTool
 
 def main():
+  
 
   #Messaging helper tool
   log = PyMessaging("main", logDEBUG)
@@ -22,7 +23,7 @@ def main():
   root_svc_reader = RootNtupleReaderTool("RootToolReader","tree.root", "ttree", 2)
   
   # Random Forest Classifier tool
-  ml = ClassificationTool("mlTool",num/2, num/2)
+  ml = ClassificationTool("mlTool",num/2, num/2, logDEBUG)
   
   # loop over entries/events in input TTree and feed them to the mlTool
   ientry = 0;
@@ -31,7 +32,7 @@ def main():
       vec = root_svc_reader.GetBranchEntry_DoubleVector("features",ientry)
       targ = root_svc_reader.GetBranchEntry_Int("target", ientry)
     except BaseException as e:
-      toLog("Cauth Error reading! -> "+ str(e), logERROR)
+      toLog("Caught Error reading! -> "+ str(e), logERROR)
       break
 
     # if EOF reached, stop.
@@ -44,7 +45,7 @@ def main():
     try:
       ml.accumulateData(intp_value(targ), vec)
     except BaseException as e:
-      toLog( "Cauth Error! -> " + str(e), logERROR)
+      toLog( "Caught Error! -> " + str(e), logERROR)
       break
 
     ientry += 1
@@ -66,8 +67,14 @@ def main():
 
 
   root_svc = RootNtupleWriterTool("RootTool", "tree_results_.root", "train/ttree", logDEBUG)
+  ml.setRootNtupleHelper(root_svc)
 
-  inc_svc.fireIncident(Incident("BeginRun"))
+  try:
+    inc_svc.fireIncident(Incident("BeginRun"))
+  except BaseException as e:
+    toLog( "Caught Error! -> " + str(e), logERROR)
+    inc_svc.kill()
+    return 0
 
   v = VectorObjectHolder_Float()
   v.thisown = 0
@@ -98,7 +105,7 @@ def main():
                                        5,   # min sample count in leaves
                                       20)   # number of variables (features) used per node
   except BaseException as e:
-    print "Cauth Error! -> ", str(e)
+    print "Caught Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))
     return 1
 
@@ -111,7 +118,7 @@ def main():
   try:
     ml.performTraining(25, 5, 20)
   except BaseException as e:
-    print "Cauth Error! -> ", str(e)
+    print "Caught Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))
     return 1
 
@@ -128,7 +135,7 @@ def main():
   try:
     ml.performTesting("train")
   except BaseException as e:
-    print "Cauth Error! -> ", str(e)
+    print "Caught Error! -> ", str(e)
     inc_svc.fireIncident(Incident("EndRun"))
     return 1
 
