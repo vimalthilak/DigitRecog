@@ -1,7 +1,7 @@
 import sys
 from Services.python.IncidentService import IncidentService, Incident
 from Services.python.Messaging import PyMessaging, logDEBUG, logINFO, logWARNING, logERROR
-from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value
+from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value, any, int_p, float_p
 from UtilityToolsInterfaces.python.ObjectHolder import VectorObjectHolder_Float
 
 
@@ -76,9 +76,20 @@ def main():
     inc_svc.kill()
     return 0
 
-  v = VectorObjectHolder_Float()
-  v.thisown = 0
-  root_svc.registerBranch("test", v)
+  inc_svc.fireIncident(Incident("BeginEvent"))
+
+  c = float_p()
+  c.assign(3.3)
+  root_svc.pushBack("prediction_prob", any(c))
+  c.assign(4.56)
+  root_svc.pushBack("prediction_prob", any(c))
+
+  c = int_p()
+  c.assign(34)
+  root_svc.pushBack("target", any(c))
+
+
+  inc_svc.fireIncident(Incident("EndEvent"))
   
   inc_svc.fireIncident(Incident("EndRun"))
 

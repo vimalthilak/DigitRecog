@@ -2,6 +2,7 @@ import numpy as np
 from Services.python.Messaging import PyMessaging, logINFO, logWARNING, logDEBUG, logERROR
 from Services.python.IncidentService import PyIIncidentListener, Incident, IncidentService
 from UtilityTools.python.RootNtupleTools import IRootNtupleWriterTool
+from UtilityToolsInterfaces.python.ObjectHolder import VectorObjectHolder_Float, SingleObjectHolder_Int
 
 from exceptions import BaseException, Exception
 
@@ -86,20 +87,29 @@ class ClassificationTool(PyMessaging, PyIIncidentListener):
 
   @accepts(1, IRootNtupleWriterTool)
   def setRootNtupleHelper(self, helper):
-     self.ntuple_helper = helper
+    self.ntuple_helper = helper
 
   def Initialize(self):
-    raise Exception("test")
-    pass
+    v = VectorObjectHolder_Float()
+    v.thisown = 0 #do not acquire ownership
+    self.ntuple_helper.registerBranch("prediction_prob", v)
+    
+    v = SingleObjectHolder_Int(-1)
+    v.thisown = 0
+    self.ntuple_helper.registerBranch("target", v)
+    
+    v = SingleObjectHolder_Int(-1)
+    v.thisown = 0
+    self.ntuple_helper.registerBranch("prediction", v)
     
 
   def handle(self,incident):
-     self.PyLOG("Handling incident ==" + incident.svcType() + "==", logDEBUG)
-     if  incident.svcType() == "BeginRun" :
-       try:
-         self.Initialize()
-       except BaseException as e:
-         self.PyLOG("Couldn't initialize properly.. " + str(e), logERROR, True)
+    self.PyLOG("Handling incident ==" + incident.svcType() + "==", logDEBUG)
+    if  incident.svcType() == "BeginRun" :
+      try:
+        self.Initialize()
+      except BaseException as e:
+        self.PyLOG("Couldn't initialize properly.. " + str(e), logERROR, True)
 
  
   #@property
