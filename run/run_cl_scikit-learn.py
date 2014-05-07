@@ -1,7 +1,7 @@
 import sys
 from Services.python.IncidentService import IncidentService, Incident
 from Services.python.Messaging import PyMessaging, logDEBUG, logINFO, logWARNING, logERROR
-from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value, any, int_p, float_p
+from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value
 from UtilityToolsInterfaces.python.ObjectHolder import VectorObjectHolder_Float
 
 
@@ -16,7 +16,7 @@ def main():
   log = PyMessaging("main", logDEBUG)
   toLog = log.PyLOG
 
-  num = 10
+  num = 42000
   
   # Reader tool : fetches the features vectors from the ROOT file
   # (one vector of features per event)
@@ -61,14 +61,11 @@ def main():
     return 1
   
   toLog("%s"% str(ml.train_features().shape), logINFO)
-  ml._scale(ml.train_features)
 
-  inc_svc = IncidentService.getInstance()
-
-
-  root_svc = RootNtupleWriterTool("RootTool", "tree_results_.root", "train/ttree", logDEBUG)
+  root_svc = RootNtupleWriterTool("RootTool", "tree_results_.root", "train/ttree", logINFO)
   ml.setRootNtupleHelper(root_svc)
 
+  inc_svc = IncidentService.getInstance()
   try:
     inc_svc.fireIncident(Incident("BeginRun"))
   except BaseException as e:
@@ -76,25 +73,23 @@ def main():
     inc_svc.kill()
     return 0
 
-  inc_svc.fireIncident(Incident("BeginEvent"))
 
-  c = float_p()
-  c.assign(3.3)
-  root_svc.pushBack("prediction_prob", any(c))
-  c.assign(4.56)
-  root_svc.pushBack("prediction_prob", any(c))
+  try:
+    ml.performCrossValidationTraining(num_trees=500)
+  except BaseException as e:
+    toLog( "Caught Error! -> " + str(e), logERROR)
+    inc_svc.fireIncident(Incident("EndRun"))
+    inc_svc.kill()
+    return 0
 
-  c = int_p()
-  c.assign(34)
-  root_svc.pushBack("target", any(c))
-
-
-  inc_svc.fireIncident(Incident("EndEvent"))
   
   inc_svc.fireIncident(Incident("EndRun"))
-
+  
   inc_svc.kill()
   
+  return 0
+  
+    
       
 
   return 0

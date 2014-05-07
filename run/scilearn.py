@@ -1,10 +1,17 @@
 import numpy as np
 from Services.python.Messaging import PyMessaging, logINFO, logWARNING, logDEBUG, logERROR
 from Services.python.IncidentService import PyIIncidentListener, Incident, IncidentService
-from UtilityTools.python.RootNtupleTools import IRootNtupleWriterTool
+from UtilityTools.python.RootNtupleTools import IRootNtupleWriterTool, any, int_p, float_p
 from UtilityToolsInterfaces.python.ObjectHolder import VectorObjectHolder_Float, SingleObjectHolder_Int
 
+
+
 from exceptions import BaseException, Exception
+
+from sklearn.ensemble import RandomForestClassifier as RFC
+from sklearn import cross_validation
+from sklearn.base import clone
+from sklearn.metrics import accuracy_score
 
 def accepts(offset, *types):
     def check_accepts(f):
@@ -102,6 +109,10 @@ class ClassificationTool(PyMessaging, PyIIncidentListener):
     v.thisown = 0
     self.ntuple_helper.registerBranch("prediction", v)
     
+    v = SingleObjectHolder_Int(-1)
+    v.thisown = 0
+    self.ntuple_helper.registerBranch("CVregion", v)
+    
 
   def handle(self,incident):
     self.PyLOG("Handling incident ==" + incident.svcType() + "==", logDEBUG)
@@ -122,6 +133,7 @@ class ClassificationTool(PyMessaging, PyIIncidentListener):
       return
 
     try:
+      #not optimal...
       data = dataset()
       data -= self._train_features_min
       data /= (self._train_features_max - self._train_features_min)
@@ -133,6 +145,71 @@ class ClassificationTool(PyMessaging, PyIIncidentListener):
 
     setattr(self, dataset.func_name +  "_scaled", True)
 
+  @accepts(1,int,int,int,int,int)
+  def performCrossValidationTraining(self, num_cv=4, max_depth=25, min_count_leaf=5, num_features=20, num_trees=500):
+    #scale first
+    self._scale(self.train_features)
+
+    clf = RFC(n_jobs=4, random_state=112, n_estimators=num_trees, min_samples_leaf=min_count_leaf, max_features=num_features, max_depth=max_depth)
+    #scores = cross_validation.cross_val_score(clf, self._train_features, self._train_target, cv=num_cv, n_jobs=4, verbose=2)
+    #self.PyLOG(str(scores), logDEBUG)
+    kf = cross_validation.KFold(self._train_target.shape[0], n_folds=4,shuffle=True, random_state=1234)
+
+    cv_n = int_p()
+    cv_n.assign(-1)
+    for train, test in kf:
+       cv_n.assign(cv_n.value() + 1)
+       
+       x_train = self._train_features[train]
+       y_train = self._train_target[train]
+
+       x_test = self._train_features[test]
+       y_test = self._train_target[test]
+
+       clf_clone = clone(clf)
+       clf_clone.fit(x_train, y_train)
+
+       y_test_predict_proba = clf_clone.predict_proba(x_test)
+       y_test_predict = clf_clone.classes_.take(np.argmax(y_test_predict_proba, axis=1), axis=0)
+       self.PyLOG("acc: "+str(accuracy_score(y_test, y_test_predict)), logINFO )
+
+       assert clf_clone.n_classes_ == np.unique(clf_clone.classes_).shape[0]
+       y_test_matrix = np.zeros(shape=(y_test.shape[0], clf_clone.n_classes_))
+       for i in xrange(0,y_test.shape[0]):
+         y_test_matrix[i][np.where(clf_clone.classes_ == y_test[i])[0][0]] = 1.
+
+       #brier score
+       assert y_test_matrix.shape == y_test_predict_proba.shape
+       b = np.power( y_test_predict_proba - y_test_matrix , 2)
+       self.PyLOG("brier score: "+str(np.sum(b)/y_test.shape[0]), logINFO)
+
+       inc_svc = IncidentService.getInstance()
+
+       tar = int_p()
+       pred = int_p()
+       pred_prob = float_p()
+       
+       for i in xrange(0,y_test.shape[0]):
+         inc_svc.fireIncident(Incident("BeginEvent"))
+
+         self.ntuple_helper.pushBack("CVregion", any(cv_n))
+         
+         tar.assign(y_test[i])
+         self.ntuple_helper.pushBack("target", any(tar))
+         
+         pred.assign(y_test_predict[i])
+         self.ntuple_helper.pushBack("prediction", any(pred))
+         
+         for j in  xrange(0,y_test_predict_proba.shape[1]):
+           assert j == np.where(clf_clone.classes_ == j)[0][0]
+           pred_prob.assign(y_test_predict_proba[i][j])
+           self.ntuple_helper.pushBack("prediction_prob", any(pred_prob))
+         
+
+         inc_svc.fireIncident(Incident("EndEvent"))
+
+       
+       
 
 
 
