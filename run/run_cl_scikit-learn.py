@@ -62,6 +62,7 @@ def main():
   
   toLog("%s"% str(ml.train_features().shape), logINFO)
 
+  # results from the training (cross-validation) process are output to a TTree
   root_svc = RootNtupleWriterTool("RootTool", "tree_results_.root", "train/ttree", logINFO)
   ml.setRootNtupleHelper(root_svc)
 
@@ -73,7 +74,9 @@ def main():
     inc_svc.kill()
     return 0
 
-
+  #####
+  # Performs the cross-validation (using 500 trees by default)
+  #####
   try:
     ml.performCrossValidationTraining(num_trees=500)
   except BaseException as e:
@@ -82,7 +85,7 @@ def main():
     inc_svc.kill()
     return 0
 
-  
+  # we're done, save output
   inc_svc.fireIncident(Incident("EndRun"))
   
   inc_svc.kill()
@@ -94,27 +97,7 @@ def main():
 
   return 0
   
-  inc_svc = IncidentService.getInstance()
   
-  # results from the training (cross-validation) process are output to a TTree
-  root_svc = RootNtupleWriterTool("RootTool", "tree_results.root", "train/ttree", 2)
-  ml.setRootNtupleHelper(root_svc)
-  
-  inc_svc.fireIncident(Incident("BeginRun"))
-  
-  #####
-  # Performs the cross-validation (using 500 trees by default)
-  #####
-  try:
-    ml.performCrossValidationTraining(4,    # number of c.-v. regions (multithreaded)
-                                      25,   # max depth of trees
-                                       5,   # min sample count in leaves
-                                      20)   # number of variables (features) used per node
-  except BaseException as e:
-    print "Caught Error! -> ", str(e)
-    inc_svc.fireIncident(Incident("EndRun"))
-    return 1
-
   root_svc.stop() #stop listening to Begin/EndEvent
 
   
