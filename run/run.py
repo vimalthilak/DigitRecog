@@ -1,7 +1,7 @@
 import sys
-from Services.python.IncidentService import IncidentService, Incident
+from simplefwk_services.python.IncidentService import IncidentService, Incident
 from DigitRecog.python.DigitRecog import FeX , GaussianBlurTool, CannyEdgeTool , FloatVector
-from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool
+from simplefwk_utilitytools.python.RootNtupleTools import RootNtupleWriterTool
 
 from exceptions import BaseException
 
@@ -13,7 +13,7 @@ def _run(tool):
   inc_svc.fireIncident(Incident("BeginRun"))
 
   # change input file location
-  with open("/Users/chaber/test_kaggle/digit/train_unix.csv", "r") as f:
+  with open("train.csv", "r") as f:
      csv_reader = csv.reader(f)
      for row in csv_reader:
         row_int = map(float,row) #convert to list of floats (from list of string)

@@ -1,8 +1,8 @@
 import sys
-from Services.python.IncidentService import IncidentService, Incident
-from Services.python.Messaging import PyMessaging, logDEBUG, logINFO, logWARNING, logERROR
-from UtilityTools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value
-from UtilityToolsInterfaces.python.ObjectHolder import VectorObjectHolder_Float
+from simplefwk_services.python.IncidentService import IncidentService, Incident
+from simplefwk_services.python.Messaging import PyMessaging, logDEBUG, logINFO, logWARNING, logERROR
+from simplefwk_utilitytools.python.RootNtupleTools import RootNtupleWriterTool, RootNtupleReaderTool, intp_value
+from simplefwk_utilitytoolsinterfaces.python.ObjectHolder import VectorObjectHolder_Float
 
 
 from exceptions import BaseException

@@ -1,7 +1,7 @@
 import sys
-from Services.python.IncidentService import IncidentService
-from UtilityTools.python.RootNtupleTools import RootNtupleReaderTool, intp_value
-from Services.python.Messaging import PyMessaging, logDEBUG, logINFO, logWARNING, logERROR
+from simplefwk_services.python.IncidentService import IncidentService
+from simplefwk_utilitytools.python.RootNtupleTools import RootNtupleReaderTool, intp_value
+from simplefwk_services.python.Messaging import PyMessaging, logDEBUG, logINFO, logWARNING, logERROR
 
 from exceptions import BaseException
 import numpy as np
