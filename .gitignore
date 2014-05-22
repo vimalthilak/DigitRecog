@@ -7,3 +7,4 @@ python/*
 run/*
 !run/*.py
 *.DS_Store
+*~

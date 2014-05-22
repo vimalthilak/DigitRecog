@@ -1,4 +1,4 @@
-CC=g++-mp-4.8
+CC=g++
 CFLAGS=-std=c++11 -fPIC -Wall -I. -c
 LDFLAGS=-std=c++11 -shared 
 LDFLAGSEXTRA=-install_name @rpath/DigitRecog/lib/
@@ -17,19 +17,19 @@ $(LIBDIR):
 	mkdir $(LIBDIR) 
 
 python/_DigitRecog.so: lib/libDigitRecog.so python/DigitRecog_wrap.o
-	$(CC) $(LDFLAGS) python/DigitRecog_wrap.o -L/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/config -ldl -lpython2.7 -Llib/ -lDigitRecog -Xlinker -rpath -Xlinker `dirname \`pwd\`` -o python/_DigitRecog.so
+	$(CC) $(LDFLAGS) python/DigitRecog_wrap.o `python2.7-config --ldflags` -o python/_DigitRecog.so -Wl,-rpath,'$$ORIGIN/../lib' -Llib/ -lDigitRecog 
 
 python/DigitRecog_wrap.o: python/DigitRecog_wrap.cxx
-	$(CC) $(CFLAGS) python/DigitRecog_wrap.cxx -I../Services `python2.7-config --cflags` -o python/DigitRecog_wrap.o
+	$(CC) $(CFLAGS) python/DigitRecog_wrap.cxx -I../simplefwk-services `python2.7-config --cflags` -o python/DigitRecog_wrap.o
 
 python/DigitRecog_wrap.cxx:
 	swig -Wall -c++ -python python/DigitRecog.i
 
 lib/libDigitRecog.so: $(OBJ_FILES)
-	$(CC) $(LDFLAGS) $(LDFLAGSEXTRA)libDigitRecog.so $^ -L../Services/lib -lServices -L../UtilityToolsInterfaces/lib -lObjectHolder -L/opt/local/lib/ -lopencv_ml -lopencv_core `root-config --libs`  -Xlinker -rpath -Xlinker `dirname \`pwd\`` -o $@
+	$(CC) $(LDFLAGS) $^ -L../simplefwk-services/lib -lServices -L../simplefwk-utilitytoolsinterfaces/lib -lObjectHolder -lopencv_ml -lopencv_core `root-config --libs`  -Wl,-rpath,'$$ORIGIN/../../simplefwk-services/lib' -Wl,-rpath,'$$ORIGIN/../../simplefwk-utilitytoolsinterfaces/lib' -o $@
 
 build/%.o: src/%.cxx
-	$(CC) $(CFLAGS) -I../Services -I../UtilityToolsInterfaces `root-config --cflags` $< -o $@
+	$(CC) $(CFLAGS) -I../simplefwk-services -I../simplefwk-utilitytoolsinterfaces `root-config --cflags` $< -o $@
 
 clean:
 	rm -r build/
